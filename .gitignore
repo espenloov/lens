@@ -1,0 +1,21 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+.next/
+dist/
+coverage/
+*.log
+
+target/
+.wasm-pack/
+
+data/
+tmp/
+
+# Local hackathon reference material
+/handbook.pdf
+/recources.pdf
+
+.DS_Store

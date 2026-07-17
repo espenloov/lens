@@ -1,0 +1,15 @@
+[package]
+name = "lens-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lens-core = { path = "../lens-core" }
+
+[lints]
+workspace = true

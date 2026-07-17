@@ -1,0 +1,19 @@
+version = 4
+
+[[package]]
+name = "lens-api"
+version = "0.1.0"
+dependencies = [
+ "lens-core",
+]
+
+[[package]]
+name = "lens-core"
+version = "0.1.0"
+
+[[package]]
+name = "lens-wasm"
+version = "0.1.0"
+dependencies = [
+ "lens-core",
+]
