@@ -2,14 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
-import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
+import {
+  useTriggerChatTransport,
+  type InferChatUIMessage,
+} from "@trigger.dev/sdk/chat/react";
 
 import {
   mintPropertyChatAccessToken,
   startPropertyChatSession,
 } from "@/app/actions/chat";
+import { MessagePart } from "@/components/chat/message-part";
 import { Button } from "@/components/ui/button";
 import type { propertyAgent } from "@/src/trigger/property-agent";
+
+type PropertyChatMessage = InferChatUIMessage<typeof propertyAgent>;
 
 export function PropertyChat() {
   const [input, setInput] = useState("");
@@ -21,9 +27,10 @@ export function PropertyChat() {
       startPropertyChatSession({ chatId, clientData }),
   });
 
-  const { messages, sendMessage, status, stop, error } = useChat({
-    transport,
-  });
+  const { messages, sendMessage, status, stop, error } =
+    useChat<PropertyChatMessage>({
+      transport,
+    });
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -41,7 +48,7 @@ export function PropertyChat() {
   }
 
   return (
-    <section className="flex w-full max-w-2xl flex-col gap-6">
+    <section className="flex w-full max-w-5xl flex-col gap-6">
       <div className="flex min-h-80 flex-col gap-4 rounded-xl border p-6">
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -54,21 +61,21 @@ export function PropertyChat() {
             key={message.id}
             className={
               message.role === "user"
-                ? "self-end rounded-xl bg-foreground px-4 py-3 text-background"
-                : "self-start rounded-xl bg-muted px-4 py-3"
+                ? "max-w-2xl self-end"
+                : "flex w-full flex-col items-start gap-4"
             }
           >
-            {message.parts.map((part, index) => {
-              if (part.type !== "text") {
-                return null;
-              }
-
-              return <p key={index}>{part.text}</p>;
-            })}
+            {message.parts.map((part, index) => (
+              <MessagePart
+                key={`${message.id}-${index}`}
+                part={part}
+                role={message.role}
+              />
+            ))}
           </div>
         ))}
 
-        {isBusy && (
+        {status === "submitted" && (
           <p className="text-sm text-muted-foreground">Lens is thinking…</p>
         )}
 
