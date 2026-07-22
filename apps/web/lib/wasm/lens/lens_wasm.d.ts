@@ -1,38 +1,45 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export class TimeSeriesAnalysis {
+export class TimeSeriesData {
     private constructor();
     free(): void;
     [Symbol.dispose](): void;
-    readonly maximum_value: number | undefined;
-    readonly minimum_value: number | undefined;
+    observation_counts(): BigUint64Array;
+    period_starts(): Int32Array;
+    series_indexes(): Uint32Array;
+    series_name(index: number): string | undefined;
+    values(): Float64Array;
     readonly row_count: number;
     readonly series_count: number;
 }
 
 /**
- * Decodes and analyzes a generic time-series Arrow IPC stream.
+ * Decodes a generic time-series Arrow IPC stream into typed columns.
  *
  * # Errors
  *
  * Returns a JavaScript error value when the bytes violate the time-series
- * schema or an analysis count cannot fit inside a `u32`.
+ * schema or a row count cannot fit inside a `u32`.
  */
-export function analyze_time_series_arrow(bytes: Uint8Array): TimeSeriesAnalysis;
+export function decode_time_series_arrow(bytes: Uint8Array): TimeSeriesData;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly __wbg_timeseriesanalysis_free: (a: number, b: number) => void;
-    readonly analyze_time_series_arrow: (a: number, b: number, c: number) => void;
-    readonly timeseriesanalysis_maximum_value: (a: number, b: number) => void;
-    readonly timeseriesanalysis_minimum_value: (a: number, b: number) => void;
-    readonly timeseriesanalysis_row_count: (a: number) => number;
-    readonly timeseriesanalysis_series_count: (a: number) => number;
+    readonly __wbg_timeseriesdata_free: (a: number, b: number) => void;
+    readonly decode_time_series_arrow: (a: number, b: number, c: number) => void;
+    readonly timeseriesdata_observation_counts: (a: number, b: number) => void;
+    readonly timeseriesdata_period_starts: (a: number, b: number) => void;
+    readonly timeseriesdata_row_count: (a: number) => number;
+    readonly timeseriesdata_series_count: (a: number) => number;
+    readonly timeseriesdata_series_indexes: (a: number, b: number) => void;
+    readonly timeseriesdata_series_name: (a: number, b: number, c: number) => void;
+    readonly timeseriesdata_values: (a: number, b: number) => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export: (a: number, b: number) => number;
+    readonly __wbindgen_export2: (a: number, b: number, c: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

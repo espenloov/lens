@@ -53,6 +53,52 @@ pub struct TimeSeriesAnalysis {
     maximum_value: Option<f64>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimeSeriesData {
+    period_starts: Vec<i32>,
+    series_indexes: Vec<u32>,
+    values: Vec<f64>,
+    observation_counts: Vec<u64>,
+    series_names: Vec<String>,
+}
+
+impl TimeSeriesData {
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.period_starts.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.period_starts.is_empty()
+    }
+
+    #[must_use]
+    pub fn period_starts(&self) -> &[i32] {
+        &self.period_starts
+    }
+
+    #[must_use]
+    pub fn series_indexes(&self) -> &[u32] {
+        &self.series_indexes
+    }
+
+    #[must_use]
+    pub fn values(&self) -> &[f64] {
+        &self.values
+    }
+
+    #[must_use]
+    pub fn observation_counts(&self) -> &[u64] {
+        &self.observation_counts
+    }
+
+    #[must_use]
+    pub fn series_names(&self) -> &[String] {
+        &self.series_names
+    }
+}
+
 impl TimeSeriesAnalysis {
     #[must_use]
     pub const fn row_count(&self) -> usize {
@@ -98,6 +144,9 @@ pub enum TimeSeriesArrowError {
 
     #[error("Arrow column `value` contains a non-finite value at index {index}")]
     NonFiniteValue { index: usize },
+
+    #[error("the time-series stream contains more than u32::MAX distinct series")]
+    TooManySeries,
 }
 
 fn typed_column<'a, T>(
@@ -203,9 +252,54 @@ pub fn analyze_time_series(batches: &[TimeSeriesBatch]) -> TimeSeriesAnalysis {
     }
 }
 
+/// Collects decoded Arrow batches into contiguous, browser-friendly columns.
+///
+/// # Errors
+///
+/// Returns [`TimeSeriesArrowError::TooManySeries`] when the number of distinct
+/// series cannot be represented by the `u32` dictionary index column.
+pub fn collect_time_series(
+    batches: &[TimeSeriesBatch],
+) -> Result<TimeSeriesData, TimeSeriesArrowError> {
+    let row_count = batches.iter().map(TimeSeriesBatch::len).sum();
+    let mut period_starts = Vec::with_capacity(row_count);
+    let mut series_indexes = Vec::with_capacity(row_count);
+    let mut values = Vec::with_capacity(row_count);
+    let mut observation_counts = Vec::with_capacity(row_count);
+    let mut series_names = Vec::<String>::new();
+
+    for batch in batches {
+        for index in 0..batch.len() {
+            let series_name = batch.series().value(index);
+            let series_index = series_names
+                .iter()
+                .position(|candidate| candidate == series_name)
+                .unwrap_or_else(|| {
+                    series_names.push(series_name.to_owned());
+                    series_names.len() - 1
+                });
+
+            period_starts.push(batch.period_starts()[index]);
+            series_indexes.push(
+                u32::try_from(series_index).map_err(|_| TimeSeriesArrowError::TooManySeries)?,
+            );
+            values.push(batch.values()[index]);
+            observation_counts.push(batch.observation_counts()[index]);
+        }
+    }
+
+    Ok(TimeSeriesData {
+        period_starts,
+        series_indexes,
+        values,
+        observation_counts,
+        series_names,
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{analyze_time_series, decode_time_series_stream};
+    use super::{analyze_time_series, collect_time_series, decode_time_series_stream};
 
     const MANCHESTER_YEARLY: &[u8] =
         include_bytes!("../tests/fixtures/manchester-yearly-generic.arrow");
@@ -246,6 +340,21 @@ mod tests {
                         .is_ok_and(|count| (*value - f64::from(count)).abs() < f64::EPSILON)
                 })
         }));
+    }
+
+    #[test]
+    fn collects_arrow_batches_into_typed_columns() {
+        let batches = decode_time_series_stream(LEEDS_BRISTOL_MONTHLY)
+            .expect("ClickHouse fixture should satisfy the time-series contract");
+        let data = collect_time_series(&batches).expect("fixture series should fit inside u32");
+
+        assert_eq!(data.len(), 96);
+        assert_eq!(data.period_starts().len(), data.len());
+        assert_eq!(data.series_indexes().len(), data.len());
+        assert_eq!(data.values().len(), data.len());
+        assert_eq!(data.observation_counts().len(), data.len());
+        assert_eq!(data.series_names(), ["BRISTOL", "LEEDS"]);
+        assert!(data.series_indexes().iter().all(|index| *index < 2));
     }
 
     #[test]

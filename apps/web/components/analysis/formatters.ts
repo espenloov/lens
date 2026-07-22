@@ -1,8 +1,3 @@
-import type {
-  YearlyAveragePricePoint,
-  YearlyAveragePriceResult,
-} from "@/lib/analysis/results";
-
 const gbpFormatter = new Intl.NumberFormat("en-GB", {
   style: "currency",
   currency: "GBP",
@@ -74,70 +69,10 @@ export function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 1_000).toFixed(1)} s`;
 }
 
-export function getYearOverYearChange(
-  points: readonly YearlyAveragePricePoint[],
-  index: number,
-): number | null {
-  if (index <= 0 || index >= points.length) {
-    return null;
+export function formatComputeDuration(milliseconds: number): string {
+  if (milliseconds < 0.01) {
+    return "<0.01 ms";
   }
 
-  const previousPrice = points[index - 1].averagePrice;
-
-  if (previousPrice === 0) {
-    return null;
-  }
-
-  return ((points[index].averagePrice - previousPrice) / previousPrice) * 100;
-}
-
-export function formatPercentage(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
-}
-
-export type PerformanceEvidence = {
-  readonly facts: readonly string[];
-  readonly outsideQueryInference: string | null;
-};
-
-export function getPerformanceEvidence(
-  performance: YearlyAveragePriceResult["performance"],
-): PerformanceEvidence {
-  const facts: string[] = [];
-
-  if (performance.rowsRead !== null) {
-    facts.push(`${formatCompactCount(performance.rowsRead)} rows read`);
-  }
-
-  if (performance.bytesRead !== null) {
-    facts.push(`${formatBytes(performance.bytesRead)} scanned`);
-  }
-
-  if (performance.serverElapsedMs !== null) {
-    facts.push(
-      `${formatDuration(performance.serverElapsedMs)} ClickHouse execution`,
-    );
-  }
-
-  facts.push(`${formatDuration(performance.roundTripMs)} end-to-end`);
-
-  if (performance.serverElapsedMs === null) {
-    return { facts, outsideQueryInference: null };
-  }
-
-  const outsideQueryMs = Math.max(
-    0,
-    performance.roundTripMs - performance.serverElapsedMs,
-  );
-  const isLikelyInfrastructureDelay =
-    outsideQueryMs >= 5_000 &&
-    performance.roundTripMs >= performance.serverElapsedMs * 5;
-
-  return {
-    facts,
-    outsideQueryInference: isLikelyInfrastructureDelay
-      ? `${formatDuration(outsideQueryMs)} occurred outside query execution; likely service wake-up or network latency.`
-      : null,
-  };
+  return `${milliseconds.toFixed(2)} ms`;
 }

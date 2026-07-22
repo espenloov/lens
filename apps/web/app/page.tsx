@@ -1,6 +1,24 @@
-import { PropertyChat } from "@/components/property-chat";
+import { randomUUID } from "node:crypto";
 
-export default function Home() {
+import { redirect } from "next/navigation";
+
+import { PropertyChat } from "@/components/property-chat";
+import { parsePropertyChatId } from "@/lib/chat/session";
+
+type HomeProps = {
+  readonly searchParams: Promise<{
+    readonly chat?: string | string[];
+  }>;
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+  const parameters = await searchParams;
+  const chatId = parsePropertyChatId(parameters.chat);
+
+  if (chatId === null) {
+    redirect(`/?chat=${randomUUID()}`);
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center px-6 py-16">
       <div className="mb-10 w-full max-w-2xl">
@@ -15,7 +33,7 @@ export default function Home() {
         </p>
       </div>
 
-      <PropertyChat />
+      <PropertyChat chatId={chatId} key={chatId} />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import type { AnalysisToolOutput } from "@/lib/analysis/tool-output";
 
-import { YearlyPriceTrace } from "./yearly-price-trace";
+import { TimeSeriesAnalysis } from "./time-series-analysis";
 
 type AnalysisResultProps = {
   readonly output: AnalysisToolOutput;
@@ -20,11 +20,6 @@ export function AnalysisResult({ output }: AnalysisResultProps) {
   }
 
   return (
-    <YearlyPriceTrace
-      explanation={output.plan.explanation}
-      key={output.result.queryId}
-      result={output.result}
-      title={output.plan.title}
-    />
+    <TimeSeriesAnalysis plan={output.plan} request={output.request} />
   );
 }

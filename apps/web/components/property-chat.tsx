@@ -6,6 +6,7 @@ import {
   useTriggerChatTransport,
   type InferChatUIMessage,
 } from "@trigger.dev/sdk/chat/react";
+import { useRouter } from "next/navigation";
 
 import {
   mintPropertyChatAccessToken,
@@ -17,8 +18,13 @@ import type { propertyAgent } from "@/src/trigger/property-agent";
 
 type PropertyChatMessage = InferChatUIMessage<typeof propertyAgent>;
 
-export function PropertyChat() {
+type PropertyChatProps = {
+  readonly chatId: string;
+};
+
+export function PropertyChat({ chatId }: PropertyChatProps) {
   const [input, setInput] = useState("");
+  const router = useRouter();
 
   const transport = useTriggerChatTransport<typeof propertyAgent>({
     task: "property-agent",
@@ -29,6 +35,7 @@ export function PropertyChat() {
 
   const { messages, sendMessage, status, stop, error } =
     useChat<PropertyChatMessage>({
+      id: chatId,
       transport,
     });
 
@@ -47,8 +54,23 @@ export function PropertyChat() {
     setInput("");
   }
 
+  function startNewAnalysis() {
+    router.push(`/?chat=${crypto.randomUUID()}`);
+  }
+
   return (
     <section className="flex w-full max-w-5xl flex-col gap-6">
+      <div className="flex justify-end">
+        <Button
+          disabled={isBusy}
+          onClick={startNewAnalysis}
+          type="button"
+          variant="outline"
+        >
+          New analysis
+        </Button>
+      </div>
+
       <div className="flex min-h-80 flex-col gap-4 rounded-xl border p-6">
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
