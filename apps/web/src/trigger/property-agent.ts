@@ -35,6 +35,11 @@ export const propertyAgent = chat
   .agent({
     id: "property-agent",
     tools: propertyAgentTools,
+    maxTurns: 10,
+    turnTimeout: "10m",
+    idleTimeoutInSeconds: 10,
+    preloadIdleTimeoutInSeconds: 30,
+    preloadTimeout: "2m",
 
     onChatStart: async () => {
       chat.prompt.set(propertyAgentSystemPrompt);
