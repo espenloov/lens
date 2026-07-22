@@ -14,6 +14,27 @@ export class TimeSeriesData {
     readonly series_count: number;
 }
 
+export class TimeSeriesFingerprint {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly algorithm: string;
+    readonly digest: string;
+    readonly row_count: number;
+}
+
+export class TimeSeriesVerification {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly equivalent: boolean;
+    readonly left_fingerprint: string;
+    readonly left_row_count: number;
+    readonly mismatch_reason: string | undefined;
+    readonly right_fingerprint: string;
+    readonly right_row_count: number;
+}
+
 /**
  * Decodes a generic time-series Arrow IPC stream into typed columns.
  *
@@ -24,12 +45,35 @@ export class TimeSeriesData {
  */
 export function decode_time_series_arrow(bytes: Uint8Array): TimeSeriesData;
 
+/**
+ * Creates a stable fingerprint for one Arrow IPC time-series stream.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error value when the stream violates the time-series
+ * schema, contains invalid values, or its row count cannot fit inside a `u32`.
+ */
+export function fingerprint_time_series_arrow(bytes: Uint8Array): TimeSeriesFingerprint;
+
+/**
+ * Verifies that two Arrow IPC streams contain the same time-series rows.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error value when either stream violates the time-series
+ * schema, contains invalid values, or a row count cannot fit inside a `u32`.
+ */
+export function verify_time_series_arrow(left: Uint8Array, right: Uint8Array): TimeSeriesVerification;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_timeseriesdata_free: (a: number, b: number) => void;
+    readonly __wbg_timeseriesfingerprint_free: (a: number, b: number) => void;
+    readonly __wbg_timeseriesverification_free: (a: number, b: number) => void;
     readonly decode_time_series_arrow: (a: number, b: number, c: number) => void;
+    readonly fingerprint_time_series_arrow: (a: number, b: number, c: number) => void;
     readonly timeseriesdata_observation_counts: (a: number, b: number) => void;
     readonly timeseriesdata_period_starts: (a: number, b: number) => void;
     readonly timeseriesdata_row_count: (a: number) => number;
@@ -37,6 +81,16 @@ export interface InitOutput {
     readonly timeseriesdata_series_indexes: (a: number, b: number) => void;
     readonly timeseriesdata_series_name: (a: number, b: number, c: number) => void;
     readonly timeseriesdata_values: (a: number, b: number) => void;
+    readonly timeseriesfingerprint_algorithm: (a: number, b: number) => void;
+    readonly timeseriesfingerprint_digest: (a: number, b: number) => void;
+    readonly timeseriesfingerprint_row_count: (a: number) => number;
+    readonly timeseriesverification_equivalent: (a: number) => number;
+    readonly timeseriesverification_left_fingerprint: (a: number, b: number) => void;
+    readonly timeseriesverification_left_row_count: (a: number) => number;
+    readonly timeseriesverification_mismatch_reason: (a: number, b: number) => void;
+    readonly timeseriesverification_right_fingerprint: (a: number, b: number) => void;
+    readonly timeseriesverification_right_row_count: (a: number) => number;
+    readonly verify_time_series_arrow: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number) => void;

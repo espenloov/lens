@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     ".trigger/**",
     "lib/wasm/lens/**",
+    "lib/wasm/lens-node/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

@@ -9,6 +9,7 @@ publish = false
 arrow-array = "59.1.0"
 arrow-ipc = { version = "59.1.0", features = ["lz4"] }
 arrow-schema = "59.1.0"
+sha2 = "0.10.9"
 thiserror = "2.0"
 
 [lints]

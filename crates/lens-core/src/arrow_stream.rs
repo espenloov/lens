@@ -2,7 +2,7 @@ use std::{collections::HashSet, io::Cursor};
 
 use arrow_array::{Array, Date32Array, Float64Array, RecordBatch, StringArray, UInt64Array};
 use arrow_ipc::reader::StreamReader;
-use arrow_schema::{ArrowError, DataType};
+use arrow_schema::{ArrowError, DataType, Schema};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
@@ -145,8 +145,24 @@ pub enum TimeSeriesArrowError {
     #[error("Arrow column `value` contains a non-finite value at index {index}")]
     NonFiniteValue { index: usize },
 
+    #[error("Arrow stream contains {actual} columns; expected exactly {expected}")]
+    UnexpectedColumnCount { expected: usize, actual: usize },
+
     #[error("the time-series stream contains more than u32::MAX distinct series")]
     TooManySeries,
+}
+
+fn validate_schema(schema: &Schema) -> Result<(), TimeSeriesArrowError> {
+    const EXPECTED_COLUMN_COUNT: usize = 4;
+
+    if schema.fields().len() != EXPECTED_COLUMN_COUNT {
+        return Err(TimeSeriesArrowError::UnexpectedColumnCount {
+            expected: EXPECTED_COLUMN_COUNT,
+            actual: schema.fields().len(),
+        });
+    }
+
+    Ok(())
 }
 
 fn typed_column<'a, T>(
@@ -216,6 +232,7 @@ pub fn decode_time_series_stream(
     bytes: &[u8],
 ) -> Result<Vec<TimeSeriesBatch>, TimeSeriesArrowError> {
     let reader = StreamReader::try_new(Cursor::new(bytes), None)?;
+    validate_schema(reader.schema().as_ref())?;
     let mut batches = Vec::new();
 
     for batch in reader {

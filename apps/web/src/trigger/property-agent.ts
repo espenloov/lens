@@ -1,18 +1,17 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { ai, chat } from "@trigger.dev/sdk/ai";
+import { chat } from "@trigger.dev/sdk/ai";
 import type { InferChatUIMessageFromTools } from "@trigger.dev/sdk/ai";
 import { stepCountIs, streamText, tool } from "ai";
 
 import { analysisPlanSchema } from "@/lib/analysis/contracts";
+import { prepareAnalysis } from "@/lib/analysis/prepare-analysis";
 import { propertyAgentSystemPrompt } from "@/lib/analysis/system-prompt";
 import { getOpenAIConfig } from "@/lib/openai/config";
 
-import { submitAnalysisPlanTask } from "./submit-analysis-plan";
-
 const submitAnalysisPlan = tool({
-  description: submitAnalysisPlanTask.description ?? "",
+  description: "Execute a structured UK property-market analysis plan using ClickHouse.",
   inputSchema: analysisPlanSchema,
-  execute: ai.toolExecute(submitAnalysisPlanTask),
+  execute: async (plan) => prepareAnalysis(plan),
 });
 
 export const propertyAgentTools = {
@@ -35,6 +34,9 @@ export const propertyAgent = chat
   .agent({
     id: "property-agent",
     tools: propertyAgentTools,
+    maxTurns: 10,
+    turnTimeout: "10m",
+    idleTimeoutInSeconds: 10,
 
     onChatStart: async () => {
       chat.prompt.set(propertyAgentSystemPrompt);

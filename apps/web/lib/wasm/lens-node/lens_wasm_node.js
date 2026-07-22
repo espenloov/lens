@@ -1,6 +1,6 @@
-/* @ts-self-types="./lens_wasm.d.ts" */
+/* @ts-self-types="./lens_wasm_node.d.ts" */
 
-export class TimeSeriesData {
+class TimeSeriesData {
     static __wrap(ptr) {
         const obj = Object.create(TimeSeriesData.prototype);
         obj.__wbg_ptr = ptr;
@@ -117,8 +117,9 @@ export class TimeSeriesData {
     }
 }
 if (Symbol.dispose) TimeSeriesData.prototype[Symbol.dispose] = TimeSeriesData.prototype.free;
+exports.TimeSeriesData = TimeSeriesData;
 
-export class TimeSeriesFingerprint {
+class TimeSeriesFingerprint {
     static __wrap(ptr) {
         const obj = Object.create(TimeSeriesFingerprint.prototype);
         obj.__wbg_ptr = ptr;
@@ -182,8 +183,9 @@ export class TimeSeriesFingerprint {
     }
 }
 if (Symbol.dispose) TimeSeriesFingerprint.prototype[Symbol.dispose] = TimeSeriesFingerprint.prototype.free;
+exports.TimeSeriesFingerprint = TimeSeriesFingerprint;
 
-export class TimeSeriesVerification {
+class TimeSeriesVerification {
     static __wrap(ptr) {
         const obj = Object.create(TimeSeriesVerification.prototype);
         obj.__wbg_ptr = ptr;
@@ -280,6 +282,7 @@ export class TimeSeriesVerification {
     }
 }
 if (Symbol.dispose) TimeSeriesVerification.prototype[Symbol.dispose] = TimeSeriesVerification.prototype.free;
+exports.TimeSeriesVerification = TimeSeriesVerification;
 
 /**
  * Decodes a generic time-series Arrow IPC stream into typed columns.
@@ -291,7 +294,7 @@ if (Symbol.dispose) TimeSeriesVerification.prototype[Symbol.dispose] = TimeSerie
  * @param {Uint8Array} bytes
  * @returns {TimeSeriesData}
  */
-export function decode_time_series_arrow(bytes) {
+function decode_time_series_arrow(bytes) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
@@ -308,6 +311,7 @@ export function decode_time_series_arrow(bytes) {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }
 }
+exports.decode_time_series_arrow = decode_time_series_arrow;
 
 /**
  * Creates a stable fingerprint for one Arrow IPC time-series stream.
@@ -319,7 +323,7 @@ export function decode_time_series_arrow(bytes) {
  * @param {Uint8Array} bytes
  * @returns {TimeSeriesFingerprint}
  */
-export function fingerprint_time_series_arrow(bytes) {
+function fingerprint_time_series_arrow(bytes) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
@@ -336,6 +340,7 @@ export function fingerprint_time_series_arrow(bytes) {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }
 }
+exports.fingerprint_time_series_arrow = fingerprint_time_series_arrow;
 
 /**
  * Verifies that two Arrow IPC streams contain the same time-series rows.
@@ -348,7 +353,7 @@ export function fingerprint_time_series_arrow(bytes) {
  * @param {Uint8Array} right
  * @returns {TimeSeriesVerification}
  */
-export function verify_time_series_arrow(left, right) {
+function verify_time_series_arrow(left, right) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         const ptr0 = passArray8ToWasm0(left, wasm.__wbindgen_export);
@@ -367,6 +372,7 @@ export function verify_time_series_arrow(left, right) {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }
 }
+exports.verify_time_series_arrow = verify_time_series_arrow;
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -381,7 +387,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./lens_wasm_bg.js": import0,
+        "./lens_wasm_node_bg.js": import0,
     };
 }
 
@@ -504,113 +510,14 @@ function takeObject(idx) {
 
 let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
 cachedTextDecoder.decode();
-const MAX_SAFARI_DECODE_BYTES = 2146435072;
-let numBytesDecoded = 0;
 function decodeText(ptr, len) {
-    numBytesDecoded += len;
-    if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-        cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-        cachedTextDecoder.decode();
-        numBytesDecoded = len;
-    }
     return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 
 let WASM_VECTOR_LEN = 0;
 
-let wasmModule, wasmInstance, wasm;
-function __wbg_finalize_init(instance, module) {
-    wasmInstance = instance;
-    wasm = instance.exports;
-    wasmModule = module;
-    cachedBigUint64ArrayMemory0 = null;
-    cachedDataViewMemory0 = null;
-    cachedFloat64ArrayMemory0 = null;
-    cachedInt32ArrayMemory0 = null;
-    cachedUint32ArrayMemory0 = null;
-    cachedUint8ArrayMemory0 = null;
-    return wasm;
-}
-
-async function __wbg_load(module, imports) {
-    if (typeof Response === 'function' && module instanceof Response) {
-        if (typeof WebAssembly.instantiateStreaming === 'function') {
-            try {
-                return await WebAssembly.instantiateStreaming(module, imports);
-            } catch (e) {
-                const validResponse = module.ok && expectedResponseType(module.type);
-
-                if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
-                    console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
-
-                } else { throw e; }
-            }
-        }
-
-        const bytes = await module.arrayBuffer();
-        return await WebAssembly.instantiate(bytes, imports);
-    } else {
-        const instance = await WebAssembly.instantiate(module, imports);
-
-        if (instance instanceof WebAssembly.Instance) {
-            return { instance, module };
-        } else {
-            return instance;
-        }
-    }
-
-    function expectedResponseType(type) {
-        switch (type) {
-            case 'basic': case 'cors': case 'default': return true;
-        }
-        return false;
-    }
-}
-
-function initSync(module) {
-    if (wasm !== undefined) return wasm;
-
-
-    if (module !== undefined) {
-        if (Object.getPrototypeOf(module) === Object.prototype) {
-            ({module} = module)
-        } else {
-            console.warn('using deprecated parameters for `initSync()`; pass a single object instead')
-        }
-    }
-
-    const imports = __wbg_get_imports();
-    if (!(module instanceof WebAssembly.Module)) {
-        module = new WebAssembly.Module(module);
-    }
-    const instance = new WebAssembly.Instance(module, imports);
-    return __wbg_finalize_init(instance, module);
-}
-
-async function __wbg_init(module_or_path) {
-    if (wasm !== undefined) return wasm;
-
-
-    if (module_or_path !== undefined) {
-        if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
-            ({module_or_path} = module_or_path)
-        } else {
-            console.warn('using deprecated parameters for the initialization function; pass a single object instead')
-        }
-    }
-
-    if (module_or_path === undefined) {
-        module_or_path = new URL('lens_wasm_bg.wasm', import.meta.url);
-    }
-    const imports = __wbg_get_imports();
-
-    if (typeof module_or_path === 'string' || (typeof Request === 'function' && module_or_path instanceof Request) || (typeof URL === 'function' && module_or_path instanceof URL)) {
-        module_or_path = fetch(module_or_path);
-    }
-
-    const { instance, module } = await __wbg_load(await module_or_path, imports);
-
-    return __wbg_finalize_init(instance, module);
-}
-
-export { initSync, __wbg_init as default };
+const wasmPath = `${__dirname}/lens_wasm_node_bg.wasm`;
+const wasmBytes = require('fs').readFileSync(wasmPath);
+const wasmModule = new WebAssembly.Module(wasmBytes);
+let wasmInstance = new WebAssembly.Instance(wasmModule, __wbg_get_imports());
+let wasm = wasmInstance.exports;

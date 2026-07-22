@@ -3,6 +3,7 @@ import type { Readable } from "node:stream";
 import type { ResponseHeaders } from "@clickhouse/client";
 import { ResultAsync } from "neverthrow";
 
+import type { QueryStrategy } from "@/lib/query-arena/contracts";
 import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 import { compileTimeSeriesQuery } from "@/lib/time-series/query-compiler";
 
@@ -12,6 +13,18 @@ export type ArrowStreamResult = {
   readonly stream: Readable;
   readonly queryId: string;
   readonly responseHeaders: ResponseHeaders;
+  readonly summary:
+    | {
+        readonly read_rows: string;
+        readonly read_bytes: string;
+        readonly elapsed_ns: string;
+      }
+    | undefined;
+};
+
+export type ArrowStreamQueryOptions = {
+  readonly strategy?: QueryStrategy;
+  readonly benchmark?: boolean;
 };
 
 export type ArrowStreamQueryError = {
@@ -33,8 +46,12 @@ function toArrowStreamQueryError(cause: unknown): ArrowStreamQueryError {
 
 export function queryTimeSeriesAsArrow(
   request: TimeSeriesRequest,
+  options: ArrowStreamQueryOptions = {},
 ): ResultAsync<ArrowStreamResult, ArrowStreamQueryError> {
-  const compiled = compileTimeSeriesQuery(request);
+  const compiled = compileTimeSeriesQuery(
+    request,
+    options.strategy ?? "baseline",
+  );
 
   return ResultAsync.fromPromise(
     getClickHouseClient().exec({
@@ -46,6 +63,9 @@ export function queryTimeSeriesAsArrow(
         output_format_arrow_compression_method: "lz4_frame",
         output_format_arrow_string_as_string: 1,
         result_overflow_mode: "throw",
+        optimize_move_to_prewhere:
+          compiled.settings.optimize_move_to_prewhere,
+        ...(options.benchmark ? { use_query_cache: 0 } : {}),
       },
     }),
     toArrowStreamQueryError,
@@ -53,5 +73,6 @@ export function queryTimeSeriesAsArrow(
     stream: response.stream,
     queryId: response.query_id,
     responseHeaders: response.response_headers,
+    summary: response.summary,
   }));
 }

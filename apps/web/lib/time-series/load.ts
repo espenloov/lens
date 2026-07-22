@@ -8,6 +8,10 @@ import {
   type TimeSeriesColumns,
   type TimeSeriesWasmError,
 } from "@/lib/wasm/time-series";
+import {
+  queryStrategySchema,
+  type QueryStrategy,
+} from "@/lib/query-arena/contracts";
 
 import type { TimeSeriesRequest } from "./contracts";
 import {
@@ -18,6 +22,8 @@ import {
 export type TimeSeriesLoadResult = {
   readonly columns: TimeSeriesColumns;
   readonly queryId: string | null;
+  readonly analysisSignature: string | null;
+  readonly strategy: QueryStrategy;
   readonly arrowBytes: number;
   readonly performance: TimeSeriesPerformance;
 };
@@ -73,6 +79,14 @@ export function loadTimeSeries(
         typeof response.headers["x-clickhouse-query-id"] === "string"
           ? response.headers["x-clickhouse-query-id"]
           : null,
+      analysisSignature:
+        typeof response.headers["x-lens-analysis-signature"] === "string"
+          ? response.headers["x-lens-analysis-signature"]
+          : null,
+      strategy:
+        queryStrategySchema.safeParse(
+          response.headers["x-lens-query-strategy"],
+        ).data ?? "baseline",
       arrowBytes: bytes.byteLength,
       performance: calculateTimeSeriesPerformance({
         requestStartedAt: startedAt,

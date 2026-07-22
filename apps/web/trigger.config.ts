@@ -1,9 +1,11 @@
+import { additionalFiles } from "@trigger.dev/build/extensions/core";
 import { defineConfig } from "@trigger.dev/sdk/v3";
 
 export default defineConfig({
   project: "proj_wikhrlbpdylrzwffjbhw",
   runtime: "node",
   logLevel: "log",
+  legacyDevProcessCwdBehaviour: false,
   // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
   // You can override this on an individual task.
   // See https://trigger.dev/docs/runs/max-duration
@@ -19,4 +21,14 @@ export default defineConfig({
     },
   },
   dirs: ["./src/trigger"],
+  build: {
+    extensions: [
+      additionalFiles({
+        files: [
+          "./lib/wasm/lens-node/lens_wasm_node.js",
+          "./lib/wasm/lens-node/lens_wasm_node_bg.wasm",
+        ],
+      }),
+    ],
+  },
 });

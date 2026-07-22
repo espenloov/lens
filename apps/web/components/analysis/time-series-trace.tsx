@@ -20,6 +20,7 @@ import {
   formatDuration,
   formatPrice,
 } from "./formatters";
+import { QueryArenaCard } from "./query-arena-card";
 
 type TimeSeriesTraceProps = {
   readonly title: string;
@@ -467,6 +468,11 @@ export function TimeSeriesTrace({
           </p>
         )}
       </section>
+
+      <QueryArenaCard
+        currentStrategy={loaded.strategy}
+        request={request}
+      />
 
       <details className="border-t pt-4">
         <summary className="cursor-pointer text-sm font-medium">
