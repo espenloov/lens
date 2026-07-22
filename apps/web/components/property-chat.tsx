@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   useTriggerChatTransport,
@@ -38,6 +38,10 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
       id: chatId,
       transport,
     });
+
+  useEffect(() => {
+    void transport.preload(chatId);
+  }, [chatId, transport]);
 
   const isBusy = status === "submitted" || status === "streaming";
 
