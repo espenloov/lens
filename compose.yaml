@@ -1,0 +1,26 @@
+name: lens
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lens}
+      POSTGRES_USER: ${POSTGRES_USER:-lens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lens}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/postgres/migrations/0001_query_recipes.sql:/docker-entrypoint-initdb.d/0001_query_recipes.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
