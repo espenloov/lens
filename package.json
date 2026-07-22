@@ -7,6 +7,8 @@
     "dev:trigger": "pnpm dlx trigger.dev@4.5.6 dev start --config apps/web/trigger.config.ts --env-file apps/web/.env.local",
     "build:web": "pnpm --dir apps/web build",
     "lint:web": "pnpm --dir apps/web lint",
-    "build:wasm": "wasm-pack build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm && node scripts/prepare-wasm-package.mjs"
+    "build:wasm": "pnpm build:wasm:web && pnpm build:wasm:node && node scripts/prepare-wasm-package.mjs",
+    "build:wasm:web": "wasm-pack build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm",
+    "build:wasm:node": "wasm-pack build crates/lens-wasm --target nodejs --release --out-dir ../../apps/web/lib/wasm/lens-node --out-name lens_wasm_node"
   }
 }

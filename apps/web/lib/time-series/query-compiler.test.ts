@@ -76,4 +76,26 @@ describe("compileTimeSeriesQuery", () => {
     expect(compiled.queryParams.locations).toEqual(["LEEDS", "BRISTOL"]);
     expect(compiled.queryParams.propertyTypes).toEqual(["D", "F"]);
   });
+
+  it("compiles an explicit PREWHERE challenger", () => {
+    const request = timeSeriesRequestSchema.parse({
+      metric: "average_price",
+      interval: "year",
+      dateFrom: "2018-01-01",
+      dateTo: "2018-12-31",
+      location: {
+        level: "town",
+        values: ["Manchester", "Liverpool"],
+      },
+      propertyTypes: [],
+    });
+
+    const compiled = compileTimeSeriesQuery(request, "prewhere");
+
+    expect(compiled.query).toContain("PREWHERE");
+    expect(compiled.query).toContain(
+      "WHERE town IN {locations: Array(String)}",
+    );
+    expect(compiled.settings.optimize_move_to_prewhere).toBe(1);
+  });
 });

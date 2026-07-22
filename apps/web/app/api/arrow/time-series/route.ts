@@ -3,6 +3,8 @@ import { Readable } from "node:stream";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
 import { queryTimeSeriesAsArrow } from "@/lib/clickhouse/arrow-stream";
+import { getActiveRecipe } from "@/lib/query-arena/recipe-registry";
+import { createAnalysisSignature } from "@/lib/query-arena/signature";
 import {
   timeSeriesRequestSchema,
   type TimeSeriesRequest,
@@ -42,7 +44,12 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(input.error, { status: 400 });
   }
 
-  const result = await queryTimeSeriesAsArrow(input.value);
+  const signature = createAnalysisSignature(input.value);
+  const preferredStrategy = await getActiveRecipe(signature);
+  const strategy = preferredStrategy.isOk()
+    ? (preferredStrategy.value ?? "baseline")
+    : "baseline";
+  const result = await queryTimeSeriesAsArrow(input.value, { strategy });
 
   if (result.isErr()) {
     return Response.json(
@@ -63,6 +70,8 @@ export async function POST(request: Request): Promise<Response> {
       "Cache-Control": "no-store",
       "Content-Type": "application/vnd.apache.arrow.stream",
       "X-ClickHouse-Query-Id": result.value.queryId,
+      "X-Lens-Analysis-Signature": signature,
+      "X-Lens-Query-Strategy": strategy,
       "X-Content-Type-Options": "nosniff",
     },
   });

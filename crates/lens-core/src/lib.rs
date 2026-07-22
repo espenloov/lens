@@ -1,4 +1,5 @@
 pub mod arrow_stream;
+pub mod verification;
 pub const ENGINE_NAME: &str = "lens-core";
 
 #[cfg(test)]

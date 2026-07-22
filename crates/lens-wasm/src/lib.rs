@@ -15,6 +15,83 @@ pub struct TimeSeriesData {
 }
 
 #[wasm_bindgen]
+pub struct TimeSeriesVerification {
+    equivalent: bool,
+    left_fingerprint: String,
+    right_fingerprint: String,
+    left_row_count: u32,
+    right_row_count: u32,
+    mismatch_reason: Option<String>,
+}
+
+#[wasm_bindgen]
+pub struct TimeSeriesFingerprint {
+    algorithm: String,
+    digest: String,
+    row_count: u32,
+}
+
+#[wasm_bindgen]
+impl TimeSeriesFingerprint {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn algorithm(&self) -> String {
+        self.algorithm.clone()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn digest(&self) -> String {
+        self.digest.clone()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn row_count(&self) -> u32 {
+        self.row_count
+    }
+}
+
+#[wasm_bindgen]
+impl TimeSeriesVerification {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn equivalent(&self) -> bool {
+        self.equivalent
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn left_fingerprint(&self) -> String {
+        self.left_fingerprint.clone()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn right_fingerprint(&self) -> String {
+        self.right_fingerprint.clone()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn left_row_count(&self) -> u32 {
+        self.left_row_count
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn right_row_count(&self) -> u32 {
+        self.right_row_count
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn mismatch_reason(&self) -> Option<String> {
+        self.mismatch_reason.clone()
+    }
+}
+
+#[wasm_bindgen]
 impl TimeSeriesData {
     #[must_use]
     #[wasm_bindgen(getter)]
@@ -86,9 +163,57 @@ pub fn decode_time_series_arrow(bytes: &[u8]) -> Result<TimeSeriesData, JsValue>
     })
 }
 
+/// Creates a stable fingerprint for one Arrow IPC time-series stream.
+///
+/// # Errors
+///
+/// Returns a JavaScript error value when the stream violates the time-series
+/// schema, contains invalid values, or its row count cannot fit inside a `u32`.
+#[wasm_bindgen]
+pub fn fingerprint_time_series_arrow(bytes: &[u8]) -> Result<TimeSeriesFingerprint, JsValue> {
+    let fingerprint = lens_core::verification::fingerprint_time_series_stream(bytes)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let row_count = count_to_u32(fingerprint.row_count(), "row count")?;
+
+    Ok(TimeSeriesFingerprint {
+        algorithm: lens_core::verification::TIME_SERIES_FINGERPRINT_ALGORITHM.to_owned(),
+        digest: fingerprint.digest().to_owned(),
+        row_count,
+    })
+}
+
+/// Verifies that two Arrow IPC streams contain the same time-series rows.
+///
+/// # Errors
+///
+/// Returns a JavaScript error value when either stream violates the time-series
+/// schema, contains invalid values, or a row count cannot fit inside a `u32`.
+#[wasm_bindgen]
+pub fn verify_time_series_arrow(
+    left: &[u8],
+    right: &[u8],
+) -> Result<TimeSeriesVerification, JsValue> {
+    let verification = lens_core::verification::verify_time_series_streams(left, right)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let left_row_count = count_to_u32(verification.left().row_count(), "left row count")?;
+    let right_row_count = count_to_u32(verification.right().row_count(), "right row count")?;
+
+    Ok(TimeSeriesVerification {
+        equivalent: verification.equivalent(),
+        left_fingerprint: verification.left().digest().to_owned(),
+        right_fingerprint: verification.right().digest().to_owned(),
+        left_row_count,
+        right_row_count,
+        mismatch_reason: verification.mismatch_reason().map(str::to_owned),
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{decode_time_series_arrow, engine_name};
+    use super::{
+        decode_time_series_arrow, engine_name, fingerprint_time_series_arrow,
+        verify_time_series_arrow,
+    };
 
     const MANCHESTER_YEARLY: &[u8] =
         include_bytes!("../../lens-core/tests/fixtures/manchester-yearly-generic.arrow");
@@ -121,5 +246,41 @@ mod tests {
         assert_eq!(data.series_count(), 2);
         assert_eq!(data.series_indexes().len(), 96);
         assert_eq!(data.observation_counts().len(), 96);
+    }
+
+    #[test]
+    fn exposes_exact_verification_through_the_wasm_boundary() {
+        let verification = verify_time_series_arrow(MANCHESTER_YEARLY, MANCHESTER_YEARLY)
+            .expect("identical ClickHouse fixtures should verify");
+
+        assert!(verification.equivalent());
+        assert_eq!(verification.left_row_count(), 9);
+        assert_eq!(verification.right_row_count(), 9);
+        assert_eq!(
+            verification.left_fingerprint(),
+            verification.right_fingerprint()
+        );
+        assert_eq!(verification.mismatch_reason(), None);
+    }
+
+    #[test]
+    fn exposes_a_single_stream_fingerprint_through_the_wasm_boundary() {
+        let fingerprint = fingerprint_time_series_arrow(MANCHESTER_YEARLY)
+            .expect("ClickHouse fixture should fingerprint");
+
+        assert_eq!(fingerprint.algorithm(), "sha256-v1");
+        assert_eq!(fingerprint.row_count(), 9);
+        assert_eq!(fingerprint.digest().len(), 64);
+    }
+
+    #[test]
+    fn exposes_mismatches_through_the_wasm_boundary() {
+        let verification = verify_time_series_arrow(MANCHESTER_YEARLY, LEEDS_BRISTOL_MONTHLY)
+            .expect("both ClickHouse fixtures should decode");
+
+        assert!(!verification.equivalent());
+        assert_eq!(verification.left_row_count(), 9);
+        assert_eq!(verification.right_row_count(), 96);
+        assert_eq!(verification.mismatch_reason().as_deref(), Some("row_count"));
     }
 }

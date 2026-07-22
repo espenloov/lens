@@ -6,6 +6,8 @@ import type {
   TimeSeriesRequest,
 } from "./contracts";
 
+import type { QueryStrategy } from "@/lib/query-arena/contracts";
+
 const PERIOD_EXPRESSIONS: Record<TimeSeriesInterval, string> = {
   year: "toDate(toStartOfYear(date))",
   month: "toDate(toStartOfMonth(date))",
@@ -30,6 +32,7 @@ const PROPERTY_TYPE_CODES: Record<TimeSeriesPropertyType, string> = {
 };
 
 export type CompiledTimeSeriesQuery = {
+  readonly strategy: QueryStrategy;
   readonly query: string;
   readonly queryParams: {
     readonly dateFrom: string;
@@ -37,10 +40,14 @@ export type CompiledTimeSeriesQuery = {
     readonly locations: string[];
     readonly propertyTypes: string[];
   };
+  readonly settings: {
+    readonly optimize_move_to_prewhere: 0 | 1;
+  };
 };
 
 export function compileTimeSeriesQuery(
   request: TimeSeriesRequest,
+  strategy: QueryStrategy = "baseline",
 ): CompiledTimeSeriesQuery {
   const periodExpression = PERIOD_EXPRESSIONS[request.interval];
   const locationColumn = LOCATION_COLUMNS[request.location.level];
@@ -49,8 +56,16 @@ export function compileTimeSeriesQuery(
     request.propertyTypes.length === 0
       ? ""
       : "AND type IN {propertyTypes: Array(String)}";
+  const filters = `
+        date >= {dateFrom: Date}
+        AND date <= {dateTo: Date}`;
+  const filterClause =
+    strategy === "prewhere"
+      ? `PREWHERE ${filters}\n      WHERE ${locationColumn} IN {locations: Array(String)}`
+      : `WHERE ${filters}\n        AND ${locationColumn} IN {locations: Array(String)}`;
 
   return {
+    strategy,
     query: `
       SELECT
         ${periodExpression} AS period_start,
@@ -58,9 +73,7 @@ export function compileTimeSeriesQuery(
         ${metricExpression} AS value,
         toUInt64(count()) AS observation_count
       FROM pp_complete
-      WHERE date >= {dateFrom: Date}
-        AND date <= {dateTo: Date}
-        AND ${locationColumn} IN {locations: Array(String)}
+      ${filterClause}
         ${propertyTypeFilter}
       GROUP BY period_start, series
       ORDER BY period_start ASC, series ASC
@@ -73,6 +86,9 @@ export function compileTimeSeriesQuery(
       propertyTypes: request.propertyTypes.map(
         (propertyType) => PROPERTY_TYPE_CODES[propertyType],
       ),
+    },
+    settings: {
+      optimize_move_to_prewhere: strategy === "prewhere" ? 1 : 0,
     },
   };
 }
