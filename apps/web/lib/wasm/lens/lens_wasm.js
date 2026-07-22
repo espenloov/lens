@@ -1,34 +1,90 @@
 /* @ts-self-types="./lens_wasm.d.ts" */
 
+export class TimeSeriesAnalysis {
+    static __wrap(ptr) {
+        const obj = Object.create(TimeSeriesAnalysis.prototype);
+        obj.__wbg_ptr = ptr;
+        TimeSeriesAnalysisFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        TimeSeriesAnalysisFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_timeseriesanalysis_free(ptr, 0);
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    get maximum_value() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.timeseriesanalysis_maximum_value(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    get minimum_value() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.timeseriesanalysis_minimum_value(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.timeseriesanalysis_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get series_count() {
+        const ret = wasm.timeseriesanalysis_series_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) TimeSeriesAnalysis.prototype[Symbol.dispose] = TimeSeriesAnalysis.prototype.free;
+
 /**
- * Decode a `ClickHouse` Arrow IPC stream and return its total row count.
- * JavaScript will call this function with a `Uint8Array`. The generated
- * wasm-bindgen glue copies those bytes into WebAssembly linear memory and
- * passes Rust a borrowed byte slice:
- *
- * JavaScript `Uint8Array` -> WASM memory -> `&[u8]`
- * The returned `u32` becomes a normal JavaScript number.
+ * Decodes and analyzes a generic time-series Arrow IPC stream.
  *
  * # Errors
  *
- * Returns a JavaScript error value when the bytes are not a valid yearly-price
- * Arrow stream or when the row count cannot fit inside a `u32`.
+ * Returns a JavaScript error value when the bytes violate the time-series
+ * schema or an analysis count cannot fit inside a `u32`.
  * @param {Uint8Array} bytes
- * @returns {number}
+ * @returns {TimeSeriesAnalysis}
  */
-export function yearly_price_row_count(bytes) {
+export function analyze_time_series_arrow(bytes) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
         const len0 = WASM_VECTOR_LEN;
-        wasm.yearly_price_row_count(retptr, ptr0, len0);
+        wasm.analyze_time_series_arrow(retptr, ptr0, len0);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
         if (r2) {
             throw takeObject(r1);
         }
-        return r0 >>> 0;
+        return TimeSeriesAnalysis.__wrap(r0);
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }
@@ -36,6 +92,9 @@ export function yearly_price_row_count(bytes) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
+        __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
+            throw new Error(getStringFromWasm0(arg0, arg1));
+        },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
@@ -47,6 +106,10 @@ function __wbg_get_imports() {
         "./lens_wasm_bg.js": import0,
     };
 }
+
+const TimeSeriesAnalysisFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_timeseriesanalysis_free(ptr, 1));
 
 function addHeapObject(obj) {
     if (heap_next === heap.length) heap.push(heap.length + 1);
