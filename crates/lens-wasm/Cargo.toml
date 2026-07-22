@@ -10,6 +10,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 lens-core = { path = "../lens-core" }
+wasm-bindgen = "0.2.126"
 
 [lints]
 workspace = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory"]

@@ -5,6 +5,7 @@
   "scripts": {
     "dev:web": "pnpm --dir apps/web dev",
     "build:web": "pnpm --dir apps/web build",
-    "lint:web": "pnpm --dir apps/web lint"
+    "lint:web": "pnpm --dir apps/web lint",
+    "build:wasm": "wasm-pack build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm && node scripts/prepare-wasm-package.mjs"
   }
 }

@@ -6,6 +6,10 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+arrow-array = "59.1.0"
+arrow-ipc = { version = "59.1.0", features = ["lz4"] }
+arrow-schema = "59.1.0"
+thiserror = "2.0"
 
 [lints]
 workspace = true
