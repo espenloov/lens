@@ -1,54 +1,17 @@
-import { z } from "zod";
+export {
+  timeSeriesRequestSchema,
+  type GrammarTimeSeriesRequest as TimeSeriesRequest,
+} from "../analysis/execution";
 
-export const timeSeriesMetricSchema = z.enum([
-  "average_price",
-  "transaction_count",
-]);
+import { timeSeriesRequestSchema } from "../analysis/execution";
 
-export const timeSeriesIntervalSchema = z.enum(["year", "month"]);
-
-export const timeSeriesLocationLevelSchema = z.enum(["town", "county"]);
-
-export const timeSeriesPropertyTypeSchema = z.enum([
-  "terraced",
-  "semi-detached",
-  "detached",
-  "flat",
-  "other",
-]);
-
-export const timeSeriesRequestSchema = z
-  .object({
-    metric: timeSeriesMetricSchema,
-    interval: timeSeriesIntervalSchema,
-    dateFrom: z.iso.date(),
-    dateTo: z.iso.date(),
-    location: z.object({
-      level: timeSeriesLocationLevelSchema,
-      values: z.array(z.string().trim().min(1).max(80)).min(1).max(5),
-    }),
-    propertyTypes: z.array(timeSeriesPropertyTypeSchema).max(5).default([]),
-  })
-  .superRefine((request, context) => {
-    if (request.dateFrom > request.dateTo) {
-      context.addIssue({
-        code: "custom",
-        message: "The start date must be before the end date",
-        path: ["dateTo"],
-      });
-    }
-  });
-
-export type TimeSeriesMetric = z.infer<typeof timeSeriesMetricSchema>;
-
-export type TimeSeriesInterval = z.infer<typeof timeSeriesIntervalSchema>;
-
-export type TimeSeriesLocationLevel = z.infer<
-  typeof timeSeriesLocationLevelSchema
->;
-
-export type TimeSeriesPropertyType = z.infer<
-  typeof timeSeriesPropertyTypeSchema
->;
-
-export type TimeSeriesRequest = z.infer<typeof timeSeriesRequestSchema>;
+export const queryArenaTimeSeriesRequestSchema = timeSeriesRequestSchema.refine(
+  (request) =>
+    request.metric !== "median_price" &&
+    request.transform === "value" &&
+    (request.operation === "trend" || request.operation === "comparison"),
+  {
+    message:
+      "Query Arena supports exact base trends and comparisons only",
+  },
+);

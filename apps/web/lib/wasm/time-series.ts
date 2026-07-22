@@ -1,9 +1,14 @@
 "use client";
 
-import { ResultAsync } from "neverthrow";
+import { err, ok, ResultAsync, type Result } from "neverthrow";
+
+import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 
 import initializeWasm, {
   decode_time_series_arrow,
+  derive_anomaly_scores,
+  derive_composition_shares,
+  derive_period_changes,
 } from "./lens/lens_wasm";
 
 export type TimeSeriesColumns = {
@@ -27,6 +32,20 @@ export type TimeSeriesDecodeResult = {
   readonly timing: TimeSeriesWasmTiming;
 };
 
+export type TimeSeriesDerivedColumns =
+  | {
+      readonly kind: "period_change_percent" | "share";
+      readonly values: Float64Array;
+      readonly validity: Uint8Array;
+    }
+  | {
+      readonly kind: "anomaly_score";
+      readonly expected: Float64Array;
+      readonly scores: Float64Array;
+      readonly validity: Uint8Array;
+      readonly flags: Uint8Array;
+    };
+
 export type TimeSeriesWasmResult = TimeSeriesColumns & {
   readonly minimumValue: number | null;
   readonly maximumValue: number | null;
@@ -42,7 +61,7 @@ export type TimeSeriesWasmError = {
 let initialization: Promise<void> | undefined;
 let ready = false;
 
-function initializeTimeSeriesWasm(): Promise<void> {
+export function initializeLensWasm(): Promise<void> {
   if (!initialization) {
     initialization = initializeWasm()
       .then(() => {
@@ -78,7 +97,7 @@ export function preloadTimeSeriesWasm(): ResultAsync<
   void,
   TimeSeriesWasmError
 > {
-  return ResultAsync.fromPromise(initializeTimeSeriesWasm(), toWasmError);
+  return ResultAsync.fromPromise(initializeLensWasm(), toWasmError);
 }
 
 export function decodeTimeSeries(
@@ -88,7 +107,7 @@ export function decodeTimeSeries(
   const startupWaitStartedAt = performance.now();
 
   return ResultAsync.fromPromise(
-    initializeTimeSeriesWasm().then(() => {
+    initializeLensWasm().then(() => {
       const startupWaitMs = wasReady
         ? 0
         : performance.now() - startupWaitStartedAt;
@@ -125,6 +144,79 @@ export function decodeTimeSeries(
     }),
     toWasmError,
   );
+}
+
+export function deriveTimeSeries(
+  columns: TimeSeriesColumns,
+  request: TimeSeriesRequest,
+): Result<TimeSeriesDerivedColumns | null, TimeSeriesWasmError> {
+  try {
+    switch (request.transform) {
+      case "value":
+        return ok(null);
+
+      case "period_change_percent": {
+        const derived = derive_period_changes(
+          columns.periodStarts,
+          columns.seriesIndexes,
+          columns.values,
+          request.interval,
+        );
+
+        try {
+          return ok({
+            kind: "period_change_percent",
+            values: derived.values(),
+            validity: derived.validity(),
+          });
+        } finally {
+          derived.free();
+        }
+      }
+
+      case "share": {
+        const derived = derive_composition_shares(
+          columns.periodStarts,
+          columns.values,
+        );
+
+        try {
+          return ok({
+            kind: "share",
+            values: derived.values(),
+            validity: derived.validity(),
+          });
+        } finally {
+          derived.free();
+        }
+      }
+
+      case "anomaly_score": {
+        const derived = derive_anomaly_scores(
+          columns.periodStarts,
+          columns.seriesIndexes,
+          columns.values,
+          columns.observationCounts,
+          request.interval,
+          request.anomalyThreshold ?? 3.5,
+        );
+
+        try {
+          return ok({
+            kind: "anomaly_score",
+            expected: derived.expected(),
+            scores: derived.scores(),
+            validity: derived.validity(),
+            flags: derived.flags(),
+          });
+        } finally {
+          derived.free();
+        }
+      }
+    }
+  } catch (cause) {
+    return err(toWasmError(cause));
+  }
 }
 
 export function analyzeTimeSeries(

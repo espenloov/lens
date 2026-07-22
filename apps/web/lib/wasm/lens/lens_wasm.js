@@ -1,5 +1,820 @@
 /* @ts-self-types="./lens_wasm.d.ts" */
 
+export class AnomalyValues {
+    static __wrap(ptr) {
+        const obj = Object.create(AnomalyValues.prototype);
+        obj.__wbg_ptr = ptr;
+        AnomalyValuesFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        AnomalyValuesFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_anomalyvalues_free(ptr, 0);
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    expected() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.anomalyvalues_expected(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    flags() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.anomalyvalues_flags(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 1, 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    scores() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.anomalyvalues_scores(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    validity() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.anomalyvalues_validity(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 1, 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) AnomalyValues.prototype[Symbol.dispose] = AnomalyValues.prototype.free;
+
+export class CategoryData {
+    static __wrap(ptr) {
+        const obj = Object.create(CategoryData.prototype);
+        obj.__wbg_ptr = ptr;
+        CategoryDataFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        CategoryDataFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_categorydata_free(ptr, 0);
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    category(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.categorydata_category(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {BigUint64Array}
+     */
+    observation_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.categorydata_observation_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.categorydata_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.categorydata_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) CategoryData.prototype[Symbol.dispose] = CategoryData.prototype.free;
+
+export class DerivedValues {
+    static __wrap(ptr) {
+        const obj = Object.create(DerivedValues.prototype);
+        obj.__wbg_ptr = ptr;
+        DerivedValuesFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        DerivedValuesFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_derivedvalues_free(ptr, 0);
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    validity() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.derivedvalues_validity(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 1, 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.derivedvalues_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) DerivedValues.prototype[Symbol.dispose] = DerivedValues.prototype.free;
+
+export class ExplorationDensityFrame {
+    static __wrap(ptr) {
+        const obj = Object.create(ExplorationDensityFrame.prototype);
+        obj.__wbg_ptr = ptr;
+        ExplorationDensityFrameFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ExplorationDensityFrameFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_explorationdensityframe_free(ptr, 0);
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    daily_quartiles() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationdensityframe_daily_quartiles(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    density_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationdensityframe_density_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) ExplorationDensityFrame.prototype[Symbol.dispose] = ExplorationDensityFrame.prototype.free;
+
+export class ExplorationWindow {
+    static __wrap(ptr) {
+        const obj = Object.create(ExplorationWindow.prototype);
+        obj.__wbg_ptr = ptr;
+        ExplorationWindowFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ExplorationWindowFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_explorationwindow_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get average_value() {
+        const ret = wasm.explorationwindow_average_value(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @param {number} dimension
+     * @returns {Uint32Array}
+     */
+    dimension_counts(dimension) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationwindow_dimension_counts(retptr, this.__wbg_ptr, dimension);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get estimated_outlier_count() {
+        const ret = wasm.explorationwindow_estimated_outlier_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    histogram_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationwindow_histogram_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get median() {
+        const ret = wasm.explorationwindow_median(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get q1() {
+        const ret = wasm.explorationwindow_q1(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get q3() {
+        const ret = wasm.explorationwindow_q3(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get total_count() {
+        const ret = wasm.explorationwindow_total_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) ExplorationWindow.prototype[Symbol.dispose] = ExplorationWindow.prototype.free;
+
+export class ExplorationWorkspace {
+    static __wrap(ptr) {
+        const obj = Object.create(ExplorationWorkspace.prototype);
+        obj.__wbg_ptr = ptr;
+        ExplorationWorkspaceFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        ExplorationWorkspaceFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_explorationworkspace_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get bin_count() {
+        const ret = wasm.explorationworkspace_bin_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get bucket_minimum() {
+        const ret = wasm.explorationworkspace_bucket_minimum(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get bucket_width() {
+        const ret = wasm.explorationworkspace_bucket_width(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Returns estimated daily quartiles for the selected category codes.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a filter code is outside its codebook.
+     * @param {number} dimension_0
+     * @param {number} dimension_1
+     * @param {number} dimension_2
+     * @returns {Float64Array}
+     */
+    daily_quartiles(dimension_0, dimension_1, dimension_2) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationworkspace_daily_quartiles(retptr, this.__wbg_ptr, dimension_0, dimension_1, dimension_2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get day_count() {
+        const ret = wasm.explorationworkspace_day_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Returns the time-by-value density for the selected category codes.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a filter code is outside its codebook.
+     * @param {number} dimension_0
+     * @param {number} dimension_1
+     * @param {number} dimension_2
+     * @returns {Uint32Array}
+     */
+    density_counts(dimension_0, dimension_1, dimension_2) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationworkspace_density_counts(retptr, this.__wbg_ptr, dimension_0, dimension_1, dimension_2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * Returns density counts and estimated daily quartiles with one density pass.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a filter code is outside its codebook.
+     * @param {number} dimension_0
+     * @param {number} dimension_1
+     * @param {number} dimension_2
+     * @returns {ExplorationDensityFrame}
+     */
+    density_frame(dimension_0, dimension_1, dimension_2) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationworkspace_density_frame(retptr, this.__wbg_ptr, dimension_0, dimension_1, dimension_2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return ExplorationDensityFrame.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get index_bytes() {
+        const ret = wasm.explorationworkspace_index_bytes(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.explorationworkspace_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Summarizes one inclusive local time window.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when the window or filter codes are invalid.
+     * @param {number} start
+     * @param {number} end
+     * @param {number} dimension_0
+     * @param {number} dimension_1
+     * @param {number} dimension_2
+     * @returns {ExplorationWindow}
+     */
+    summarize(start, end, dimension_0, dimension_1, dimension_2) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.explorationworkspace_summarize(retptr, this.__wbg_ptr, start, end, dimension_0, dimension_1, dimension_2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return ExplorationWindow.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) ExplorationWorkspace.prototype[Symbol.dispose] = ExplorationWorkspace.prototype.free;
+
+export class HistogramData {
+    static __wrap(ptr) {
+        const obj = Object.create(HistogramData.prototype);
+        obj.__wbg_ptr = ptr;
+        HistogramDataFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        HistogramDataFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_histogramdata_free(ptr, 0);
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    bin_ends() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_bin_ends(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    bin_starts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_bin_starts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {BigUint64Array}
+     */
+    observation_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_observation_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.histogramdata_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get series_count() {
+        const ret = wasm.histogramdata_series_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    series_indexes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_series_indexes(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    series_name(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_series_name(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.histogramdata_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) HistogramData.prototype[Symbol.dispose] = HistogramData.prototype.free;
+
+export class MatrixData {
+    static __wrap(ptr) {
+        const obj = Object.create(MatrixData.prototype);
+        obj.__wbg_ptr = ptr;
+        MatrixDataFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        MatrixDataFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_matrixdata_free(ptr, 0);
+    }
+    /**
+     * @returns {BigUint64Array}
+     */
+    observation_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_observation_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.matrixdata_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get x_count() {
+        const ret = wasm.matrixdata_x_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    x_indexes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_x_indexes(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    x_label(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_x_label(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get y_count() {
+        const ret = wasm.matrixdata_y_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    y_indexes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_y_indexes(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    y_label(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.matrixdata_y_label(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) MatrixData.prototype[Symbol.dispose] = MatrixData.prototype.free;
+
 export class TimeSeriesData {
     static __wrap(ptr) {
         const obj = Object.create(TimeSeriesData.prototype);
@@ -27,7 +842,7 @@ export class TimeSeriesData {
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var v1 = getArrayU64FromWasm0(r0, r1).slice();
-            wasm.__wbindgen_export2(r0, r1 * 8, 8);
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
             return v1;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
@@ -43,7 +858,7 @@ export class TimeSeriesData {
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var v1 = getArrayI32FromWasm0(r0, r1).slice();
-            wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
             return v1;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
@@ -73,7 +888,7 @@ export class TimeSeriesData {
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var v1 = getArrayU32FromWasm0(r0, r1).slice();
-            wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
             return v1;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
@@ -92,7 +907,7 @@ export class TimeSeriesData {
             let v1;
             if (r0 !== 0) {
                 v1 = getStringFromWasm0(r0, r1).slice();
-                wasm.__wbindgen_export2(r0, r1 * 1, 1);
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
             }
             return v1;
         } finally {
@@ -109,7 +924,7 @@ export class TimeSeriesData {
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var v1 = getArrayF64FromWasm0(r0, r1).slice();
-            wasm.__wbindgen_export2(r0, r1 * 8, 8);
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
             return v1;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
@@ -151,7 +966,7 @@ export class TimeSeriesFingerprint {
             return getStringFromWasm0(r0, r1);
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_export2(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_export(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -170,7 +985,7 @@ export class TimeSeriesFingerprint {
             return getStringFromWasm0(r0, r1);
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_export2(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_export(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -223,7 +1038,7 @@ export class TimeSeriesVerification {
             return getStringFromWasm0(r0, r1);
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_export2(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_export(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -245,7 +1060,7 @@ export class TimeSeriesVerification {
             let v1;
             if (r0 !== 0) {
                 v1 = getStringFromWasm0(r0, r1).slice();
-                wasm.__wbindgen_export2(r0, r1 * 1, 1);
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
             }
             return v1;
         } finally {
@@ -268,7 +1083,7 @@ export class TimeSeriesVerification {
             return getStringFromWasm0(r0, r1);
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_export2(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_export(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -280,6 +1095,121 @@ export class TimeSeriesVerification {
     }
 }
 if (Symbol.dispose) TimeSeriesVerification.prototype[Symbol.dispose] = TimeSeriesVerification.prototype.free;
+
+/**
+ * Builds a persistent Rust exploration workspace from an `exploration/v1` Arrow stream.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when the stream or bounded workspace configuration is invalid.
+ * @param {Uint8Array} bytes
+ * @param {number} day_count
+ * @param {number} bin_count
+ * @param {number} bucket_minimum
+ * @param {number} bucket_width
+ * @param {number} cardinality_0
+ * @param {number} cardinality_1
+ * @param {number} cardinality_2
+ * @returns {ExplorationWorkspace}
+ */
+export function build_exploration_workspace(bytes, day_count, bin_count, bucket_minimum, bucket_width, cardinality_0, cardinality_1, cardinality_2) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.build_exploration_workspace(retptr, ptr0, len0, day_count, bin_count, bucket_minimum, bucket_width, cardinality_0, cardinality_1, cardinality_2);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return ExplorationWorkspace.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Decodes a `categorical/v1` Arrow IPC stream.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when the bytes violate the categorical contract.
+ * @param {Uint8Array} bytes
+ * @returns {CategoryData}
+ */
+export function decode_category_arrow(bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.decode_category_arrow(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return CategoryData.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Decodes a `histogram/v1` Arrow IPC stream.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when the bytes violate the histogram contract.
+ * @param {Uint8Array} bytes
+ * @returns {HistogramData}
+ */
+export function decode_histogram_arrow(bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.decode_histogram_arrow(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return HistogramData.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Decodes a sparse `matrix/v1` Arrow IPC stream.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when the bytes violate the matrix contract.
+ * @param {Uint8Array} bytes
+ * @returns {MatrixData}
+ */
+export function decode_matrix_arrow(bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.decode_matrix_arrow(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return MatrixData.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
 
 /**
  * Decodes a generic time-series Arrow IPC stream into typed columns.
@@ -294,7 +1224,7 @@ if (Symbol.dispose) TimeSeriesVerification.prototype[Symbol.dispose] = TimeSerie
 export function decode_time_series_arrow(bytes) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
         wasm.decode_time_series_arrow(retptr, ptr0, len0);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -304,6 +1234,112 @@ export function decode_time_series_arrow(bytes) {
             throw takeObject(r1);
         }
         return TimeSeriesData.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Calculates robust seasonal anomaly scores over typed time-series columns.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error for invalid intervals, dates, thresholds, or mismatched columns.
+ * @param {Int32Array} periods
+ * @param {Uint32Array} series_indexes
+ * @param {Float64Array} values
+ * @param {BigUint64Array} observation_counts
+ * @param {string} interval
+ * @param {number} threshold
+ * @returns {AnomalyValues}
+ */
+export function derive_anomaly_scores(periods, series_indexes, values, observation_counts, interval, threshold) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray32ToWasm0(periods, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray32ToWasm0(series_indexes, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayF64ToWasm0(values, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passArray64ToWasm0(observation_counts, wasm.__wbindgen_export2);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(interval, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        const len4 = WASM_VECTOR_LEN;
+        wasm.derive_anomaly_scores(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, threshold);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return AnomalyValues.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Calculates composition shares over typed time-series columns.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when input columns have different lengths.
+ * @param {Int32Array} periods
+ * @param {Float64Array} values
+ * @returns {DerivedValues}
+ */
+export function derive_composition_shares(periods, values) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray32ToWasm0(periods, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayF64ToWasm0(values, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.derive_composition_shares(retptr, ptr0, len0, ptr1, len1);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return DerivedValues.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Calculates adjacent period percentage changes over typed time-series columns.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error for invalid intervals, dates, or mismatched columns.
+ * @param {Int32Array} periods
+ * @param {Uint32Array} series_indexes
+ * @param {Float64Array} values
+ * @param {string} interval
+ * @returns {DerivedValues}
+ */
+export function derive_period_changes(periods, series_indexes, values, interval) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray32ToWasm0(periods, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray32ToWasm0(series_indexes, wasm.__wbindgen_export2);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayF64ToWasm0(values, wasm.__wbindgen_export2);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(interval, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        const len3 = WASM_VECTOR_LEN;
+        wasm.derive_period_changes(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return DerivedValues.__wrap(r0);
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }
@@ -322,7 +1358,7 @@ export function decode_time_series_arrow(bytes) {
 export function fingerprint_time_series_arrow(bytes) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
         wasm.fingerprint_time_series_arrow(retptr, ptr0, len0);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -351,9 +1387,9 @@ export function fingerprint_time_series_arrow(bytes) {
 export function verify_time_series_arrow(left, right) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passArray8ToWasm0(left, wasm.__wbindgen_export);
+        const ptr0 = passArray8ToWasm0(left, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArray8ToWasm0(right, wasm.__wbindgen_export);
+        const ptr1 = passArray8ToWasm0(right, wasm.__wbindgen_export2);
         const len1 = WASM_VECTOR_LEN;
         wasm.verify_time_series_arrow(retptr, ptr0, len0, ptr1, len1);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -385,6 +1421,30 @@ function __wbg_get_imports() {
     };
 }
 
+const AnomalyValuesFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_anomalyvalues_free(ptr, 1));
+const CategoryDataFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_categorydata_free(ptr, 1));
+const DerivedValuesFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_derivedvalues_free(ptr, 1));
+const ExplorationDensityFrameFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_explorationdensityframe_free(ptr, 1));
+const ExplorationWindowFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_explorationwindow_free(ptr, 1));
+const ExplorationWorkspaceFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_explorationworkspace_free(ptr, 1));
+const HistogramDataFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_histogramdata_free(ptr, 1));
+const MatrixDataFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_matrixdata_free(ptr, 1));
 const TimeSeriesDataFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_timeseriesdata_free(ptr, 1));
@@ -428,6 +1488,11 @@ function getArrayU32FromWasm0(ptr, len) {
 function getArrayU64FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getBigUint64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
 let cachedBigUint64ArrayMemory0 = null;
@@ -489,10 +1554,68 @@ heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
 
+function passArray32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getUint32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArray64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getBigUint64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
     getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passStringToWasm0(arg, malloc, realloc) {
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = cachedTextEncoder.encodeInto(arg, view);
+
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
     return ptr;
 }
 
@@ -514,6 +1637,19 @@ function decodeText(ptr, len) {
         numBytesDecoded = len;
     }
     return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+
+const cachedTextEncoder = new TextEncoder();
+
+if (!('encodeInto' in cachedTextEncoder)) {
+    cachedTextEncoder.encodeInto = function (arg, view) {
+        const buf = cachedTextEncoder.encode(arg);
+        view.set(buf);
+        return {
+            read: arg.length,
+            written: buf.length
+        };
+    };
 }
 
 let WASM_VECTOR_LEN = 0;

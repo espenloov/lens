@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { calculateTimeSeriesPerformance } from "./performance";
 
 describe("calculateTimeSeriesPerformance", () => {
-  it("keeps transport, WASM startup, and Rust decode separate", () => {
+  it("keeps transport, WASM startup, Rust decode, and analysis separate", () => {
     const result = calculateTimeSeriesPerformance({
       requestStartedAt: 100,
       responseReceivedAt: 546,
@@ -18,6 +18,7 @@ describe("calculateTimeSeriesPerformance", () => {
       roundTripMs: 446,
       wasmStartupWaitMs: 68.8,
       rustDecodeMs: 0.2,
+      rustTransformMs: 0,
       wasmWasReady: false,
     });
   });

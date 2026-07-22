@@ -1,8 +1,7 @@
 import { z } from "zod";
 
-import { timeSeriesRequestSchema } from "../time-series/contracts";
-
 import { analysisPlanSchema } from "./contracts";
+import { executableAnalysisRequestSchema } from "./execution";
 
 const unsupportedAnalysisErrorSchema = z.object({
   type: z.literal("unsupported_analysis_plan"),
@@ -13,7 +12,7 @@ export const analysisToolOutputSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("ready"),
     plan: analysisPlanSchema,
-    request: timeSeriesRequestSchema,
+    request: executableAnalysisRequestSchema,
   }),
   z.object({
     status: z.literal("unsupported"),

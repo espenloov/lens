@@ -2,33 +2,31 @@ import { Readable } from "node:stream";
 
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
-import { queryTimeSeriesAsArrow } from "@/lib/clickhouse/arrow-stream";
-import { getActiveRecipe } from "@/lib/query-arena/recipe-registry";
-import { createAnalysisSignature } from "@/lib/query-arena/signature";
 import {
-  timeSeriesRequestSchema,
-  type TimeSeriesRequest,
-} from "@/lib/time-series/contracts";
+  explorationRequestSchema,
+  type ExplorationRequest,
+} from "@/lib/analysis/execution";
+import { queryExplorationAsArrow } from "@/lib/clickhouse/exploration-arrow";
 
 export const runtime = "nodejs";
 
 type RequestError = {
-  readonly type: "invalid_time_series_request";
+  readonly type: "invalid_exploration_request";
   readonly message: string;
 };
 
 function parseRequest(
   request: Request,
-): ResultAsync<TimeSeriesRequest, RequestError> {
+): ResultAsync<ExplorationRequest, RequestError> {
   return ResultAsync.fromPromise(request.json(), () => ({
-    type: "invalid_time_series_request" as const,
+    type: "invalid_exploration_request" as const,
     message: "The request body must contain valid JSON",
   })).andThen((body) => {
-    const parsed = timeSeriesRequestSchema.safeParse(body);
+    const parsed = explorationRequestSchema.safeParse(body);
 
     if (!parsed.success) {
       return errAsync({
-        type: "invalid_time_series_request" as const,
+        type: "invalid_exploration_request" as const,
         message: parsed.error.issues[0]?.message ?? "The request is invalid",
       });
     }
@@ -44,20 +42,16 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(input.error, { status: 400 });
   }
 
-  const signature = createAnalysisSignature(input.value);
-  const preferredStrategy = await getActiveRecipe(signature);
-  const strategy = preferredStrategy.isOk()
-    ? (preferredStrategy.value ?? "baseline")
-    : "baseline";
-  const result = await queryTimeSeriesAsArrow(input.value, { strategy });
+  const result = await queryExplorationAsArrow(input.value, request.signal);
 
   if (result.isErr()) {
+    if (result.error.type === "exploration_too_large") {
+      return Response.json(result.error, { status: 413 });
+    }
+
     return Response.json(
-      {
-        error: result.error.type,
-        message: result.error.message,
-      },
-      { status: 502 },
+      { type: result.error.type, message: result.error.message },
+      { status: result.error.type === "exploration_busy" ? 429 : 502 },
     );
   }
 
@@ -70,9 +64,8 @@ export async function POST(request: Request): Promise<Response> {
       "Cache-Control": "no-store",
       "Content-Type": "application/vnd.apache.arrow.stream",
       "X-ClickHouse-Query-Id": result.value.queryId,
-      "X-Lens-Analysis-Signature": signature,
-      "X-Lens-Arrow-Contract": "time_series/v1",
-      "X-Lens-Query-Strategy": strategy,
+      "X-Lens-Arrow-Contract": "exploration/v1",
+      "X-Lens-Source-Rows": String(result.value.sourceRows),
       "X-Content-Type-Options": "nosniff",
     },
   });

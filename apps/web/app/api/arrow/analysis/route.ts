@@ -2,33 +2,31 @@ import { Readable } from "node:stream";
 
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
-import { queryTimeSeriesAsArrow } from "@/lib/clickhouse/arrow-stream";
-import { getActiveRecipe } from "@/lib/query-arena/recipe-registry";
-import { createAnalysisSignature } from "@/lib/query-arena/signature";
 import {
-  timeSeriesRequestSchema,
-  type TimeSeriesRequest,
-} from "@/lib/time-series/contracts";
+  executableAnalysisRequestSchema,
+  type ExecutableAnalysisRequest,
+} from "@/lib/analysis/execution";
+import { queryAnalysisAsArrow } from "@/lib/clickhouse/analysis-arrow";
 
 export const runtime = "nodejs";
 
 type RequestError = {
-  readonly type: "invalid_time_series_request";
+  readonly type: "invalid_analysis_request";
   readonly message: string;
 };
 
 function parseRequest(
   request: Request,
-): ResultAsync<TimeSeriesRequest, RequestError> {
+): ResultAsync<ExecutableAnalysisRequest, RequestError> {
   return ResultAsync.fromPromise(request.json(), () => ({
-    type: "invalid_time_series_request" as const,
+    type: "invalid_analysis_request" as const,
     message: "The request body must contain valid JSON",
   })).andThen((body) => {
-    const parsed = timeSeriesRequestSchema.safeParse(body);
+    const parsed = executableAnalysisRequestSchema.safeParse(body);
 
     if (!parsed.success) {
       return errAsync({
-        type: "invalid_time_series_request" as const,
+        type: "invalid_analysis_request" as const,
         message: parsed.error.issues[0]?.message ?? "The request is invalid",
       });
     }
@@ -44,12 +42,20 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(input.error, { status: 400 });
   }
 
-  const signature = createAnalysisSignature(input.value);
-  const preferredStrategy = await getActiveRecipe(signature);
-  const strategy = preferredStrategy.isOk()
-    ? (preferredStrategy.value ?? "baseline")
-    : "baseline";
-  const result = await queryTimeSeriesAsArrow(input.value, { strategy });
+  if (
+    input.value.shape === "time_series" ||
+    input.value.shape === "exploration"
+  ) {
+    return Response.json(
+      {
+        type: "invalid_analysis_request",
+        message: "This analysis shape uses a dedicated optimized endpoint",
+      },
+      { status: 400 },
+    );
+  }
+
+  const result = await queryAnalysisAsArrow(input.value);
 
   if (result.isErr()) {
     return Response.json(
@@ -70,9 +76,7 @@ export async function POST(request: Request): Promise<Response> {
       "Cache-Control": "no-store",
       "Content-Type": "application/vnd.apache.arrow.stream",
       "X-ClickHouse-Query-Id": result.value.queryId,
-      "X-Lens-Analysis-Signature": signature,
-      "X-Lens-Arrow-Contract": "time_series/v1",
-      "X-Lens-Query-Strategy": strategy,
+      "X-Lens-Arrow-Contract": `${input.value.shape}/v1`,
       "X-Content-Type-Options": "nosniff",
     },
   });

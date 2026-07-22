@@ -364,6 +364,7 @@ dependencies = [
  "arrow-array",
  "arrow-ipc",
  "arrow-schema",
+ "chrono",
  "sha2",
  "thiserror",
 ]
