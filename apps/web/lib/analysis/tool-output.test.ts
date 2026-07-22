@@ -27,35 +27,28 @@ const plan = {
 } as const;
 
 describe("parseAnalysisToolOutput", () => {
-  it("accepts a completed Trigger analysis result", () => {
+  it("accepts a prepared Trigger time-series request", () => {
     const parsed = parseAnalysisToolOutput({
-      status: "completed",
+      status: "ready",
       plan,
-      result: {
-        kind: "yearly_average_price",
-        points: [
-          {
-            year: 2023,
-            averagePrice: 270_667,
-            transactionCount: 9_595,
-          },
-        ],
-        queryId: "bbd862cd-f871-4011-8f6a-b080e96e42b9",
-        performance: {
-          roundTripMs: 19_606,
-          serverElapsedMs: 299.301773,
-          rowsRead: 28_919_900,
-          bytesRead: 61_683_314,
+      request: {
+        metric: "average_price",
+        interval: "year",
+        dateFrom: "2015-01-01",
+        dateTo: "2023-12-31",
+        location: {
+          level: "town",
+          values: ["Manchester"],
         },
-        calculatedAt: "2026-07-19T08:27:13.183Z",
+        propertyTypes: [],
       },
     });
 
     expect(parsed.success).toBe(true);
 
-    if (parsed.success && parsed.data.status === "completed") {
-      expect(parsed.data.result.points[0]?.averagePrice).toBe(270_667);
-      expect(parsed.data.result.performance.rowsRead).toBe(28_919_900);
+    if (parsed.success && parsed.data.status === "ready") {
+      expect(parsed.data.request.metric).toBe("average_price");
+      expect(parsed.data.request.location.values).toEqual(["Manchester"]);
     }
   });
 
@@ -74,11 +67,10 @@ describe("parseAnalysisToolOutput", () => {
 
   it("rejects malformed tool output at the browser boundary", () => {
     const parsed = parseAnalysisToolOutput({
-      status: "completed",
+      status: "ready",
       plan,
-      result: {
-        kind: "yearly_average_price",
-        points: [{ year: 2023, averagePrice: "not-a-number" }],
+      request: {
+        metric: "not-a-metric",
       },
     });
 

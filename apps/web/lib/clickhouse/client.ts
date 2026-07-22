@@ -17,6 +17,7 @@ export function getClickHouseClient(): ClickHouseClient {
     password: config.password,
     database: config.database,
     application: "lens",
+    request_timeout: 60_000,
   });
 
   return client;

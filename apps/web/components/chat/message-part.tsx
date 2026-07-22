@@ -53,7 +53,7 @@ export function MessagePart({ part, role }: MessagePartProps) {
     case "input-available":
     case "approval-requested":
     case "approval-responded":
-      return <ToolStatus>Querying ClickHouse…</ToolStatus>;
+      return <ToolStatus>Preparing a safe analysis…</ToolStatus>;
 
     case "output-available": {
       const output = parseAnalysisToolOutput(part.output);

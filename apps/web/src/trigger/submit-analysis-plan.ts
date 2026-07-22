@@ -1,7 +1,7 @@
 import { logger, schemaTask } from "@trigger.dev/sdk";
 
 import { analysisPlanSchema } from "@/lib/analysis/contracts";
-import { executeAnalysisPlan } from "@/lib/analysis/executor";
+import { toTimeSeriesRequest } from "@/lib/analysis/time-series-adapter";
 
 export const submitAnalysisPlanTask = schemaTask({
   id: "submit-analysis-plan",
@@ -13,42 +13,30 @@ export const submitAnalysisPlanTask = schemaTask({
   maxDuration: 30,
 
   run: async (plan) => {
-    const execution = await executeAnalysisPlan(plan);
+    const request = toTimeSeriesRequest(plan);
 
-    if (execution.isOk()) {
-      logger.info("Property analysis completed", {
-        pointCount: execution.value.points.length,
-        queryId: execution.value.queryId,
-        ...execution.value.performance,
+    if (request.isOk()) {
+      logger.info("Time-series analysis prepared", {
+        metric: request.value.metric,
+        interval: request.value.interval,
+        locationCount: request.value.location.values.length,
       });
 
       return {
-        status: "completed" as const,
+        status: "ready" as const,
         plan,
-        result: execution.value,
+        request: request.value,
       };
     }
 
-    if (execution.error.type === "unsupported_analysis_plan") {
-      logger.warn("Property analysis is not supported yet", {
-        message: execution.error.message,
-      });
-
-      return {
-        status: "unsupported" as const,
-        plan,
-        error: {
-          type: execution.error.type,
-          message: execution.error.message,
-        },
-      };
-    }
-
-    logger.error("Property analysis failed", {
-      type: execution.error.type,
-      message: execution.error.message,
+    logger.warn("Property analysis is not supported yet", {
+      message: request.error.message,
     });
 
-    throw new Error(execution.error.message);
+    return {
+      status: "unsupported" as const,
+      plan,
+      error: request.error,
+    };
   },
 });
