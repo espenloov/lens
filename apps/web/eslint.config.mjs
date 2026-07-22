@@ -10,6 +10,7 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".trigger/**",
+    "lib/wasm/lens/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
