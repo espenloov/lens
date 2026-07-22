@@ -5,41 +5,73 @@ pub const fn engine_name() -> &'static str {
     lens_core::ENGINE_NAME
 }
 
-/// Decode a `ClickHouse` Arrow IPC stream and return its total row count.
-/// JavaScript will call this function with a `Uint8Array`. The generated
-/// wasm-bindgen glue copies those bytes into WebAssembly linear memory and
-/// passes Rust a borrowed byte slice:
-///
-/// JavaScript `Uint8Array` -> WASM memory -> `&[u8]`
-/// The returned `u32` becomes a normal JavaScript number.
+#[wasm_bindgen]
+pub struct TimeSeriesAnalysis {
+    row_count: u32,
+    series_count: u32,
+    minimum_value: Option<f64>,
+    maximum_value: Option<f64>,
+}
+
+#[wasm_bindgen]
+impl TimeSeriesAnalysis {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn row_count(&self) -> u32 {
+        self.row_count
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn series_count(&self) -> u32 {
+        self.series_count
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn minimum_value(&self) -> Option<f64> {
+        self.minimum_value
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn maximum_value(&self) -> Option<f64> {
+        self.maximum_value
+    }
+}
+
+fn count_to_u32(value: usize, name: &str) -> Result<u32, JsValue> {
+    u32::try_from(value).map_err(|_| JsValue::from_str(&format!("{name} exceeds u32")))
+}
+
+/// Decodes and analyzes a generic time-series Arrow IPC stream.
 ///
 /// # Errors
 ///
-/// Returns a JavaScript error value when the bytes are not a valid yearly-price
-/// Arrow stream or when the row count cannot fit inside a `u32`.
+/// Returns a JavaScript error value when the bytes violate the time-series
+/// schema or an analysis count cannot fit inside a `u32`.
 #[wasm_bindgen]
-pub fn yearly_price_row_count(bytes: &[u8]) -> Result<u32, JsValue> {
-    let batches = lens_core::arrow_stream::decode_yearly_price_stream(bytes)
+pub fn analyze_time_series_arrow(bytes: &[u8]) -> Result<TimeSeriesAnalysis, JsValue> {
+    let batches = lens_core::arrow_stream::decode_time_series_stream(bytes)
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let analysis = lens_core::arrow_stream::analyze_time_series(&batches);
 
-    let row_count = batches.iter().try_fold(0_u32, |total, batch| {
-        let batch_length = u32::try_from(batch.len())
-            .map_err(|_| JsValue::from_str("Arrow batch length does not fit inside u32"))?;
-
-        total
-            .checked_add(batch_length)
-            .ok_or_else(|| JsValue::from_str("Arrow stream row count exceeds u32"))
-    })?;
-
-    Ok(row_count)
+    Ok(TimeSeriesAnalysis {
+        row_count: count_to_u32(analysis.row_count(), "row count")?,
+        series_count: count_to_u32(analysis.series_count(), "series count")?,
+        minimum_value: analysis.minimum_value(),
+        maximum_value: analysis.maximum_value(),
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{engine_name, yearly_price_row_count};
+    use super::{analyze_time_series_arrow, engine_name};
 
-    const CLICKHOUSE_STREAM: &[u8] =
-        include_bytes!("../../lens-core/tests/fixtures/manchester-yearly.arrow");
+    const MANCHESTER_YEARLY: &[u8] =
+        include_bytes!("../../lens-core/tests/fixtures/manchester-yearly-generic.arrow");
+    const LEEDS_BRISTOL_MONTHLY: &[u8] =
+        include_bytes!("../../lens-core/tests/fixtures/leeds-bristol-monthly-volume.arrow");
 
     #[test]
     fn links_the_shared_engine() {
@@ -47,10 +79,22 @@ mod tests {
     }
 
     #[test]
-    fn counts_rows_through_the_wasm_boundary_function() {
-        let row_count =
-            yearly_price_row_count(CLICKHOUSE_STREAM).expect("ClickHouse fixture should decode");
+    fn analyzes_yearly_prices_through_the_wasm_boundary() {
+        let analysis =
+            analyze_time_series_arrow(MANCHESTER_YEARLY).expect("ClickHouse fixture should decode");
 
-        assert_eq!(row_count, 9);
+        assert_eq!(analysis.row_count(), 9);
+        assert_eq!(analysis.series_count(), 1);
+        assert!(analysis.minimum_value().is_some());
+        assert!(analysis.maximum_value().is_some());
+    }
+
+    #[test]
+    fn analyzes_monthly_multi_series_through_the_wasm_boundary() {
+        let analysis = analyze_time_series_arrow(LEEDS_BRISTOL_MONTHLY)
+            .expect("ClickHouse fixture should decode");
+
+        assert_eq!(analysis.row_count(), 96);
+        assert_eq!(analysis.series_count(), 2);
     }
 }

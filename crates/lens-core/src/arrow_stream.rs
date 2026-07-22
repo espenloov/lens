@@ -1,46 +1,82 @@
-use std::io::Cursor;
+use std::{collections::HashSet, io::Cursor};
 
-use arrow_array::{Array, RecordBatch, UInt16Array, UInt64Array};
+use arrow_array::{Array, Date32Array, Float64Array, RecordBatch, StringArray, UInt64Array};
 use arrow_ipc::reader::StreamReader;
 use arrow_schema::{ArrowError, DataType};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
-pub struct YearlyPriceBatch {
-    years: UInt16Array,
-    average_prices: UInt64Array,
-    transaction_counts: UInt64Array,
+pub struct TimeSeriesBatch {
+    period_starts: Date32Array,
+    series: StringArray,
+    values: Float64Array,
+    observation_counts: UInt64Array,
 }
 
-impl YearlyPriceBatch {
+impl TimeSeriesBatch {
     #[must_use]
     pub fn len(&self) -> usize {
-        self.years.len()
+        self.period_starts.len()
     }
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.years.is_empty()
+        self.period_starts.is_empty()
     }
 
     #[must_use]
-    pub fn years(&self) -> &[u16] {
-        self.years.values().as_ref()
+    pub fn period_starts(&self) -> &[i32] {
+        self.period_starts.values().as_ref()
     }
 
     #[must_use]
-    pub fn average_prices(&self) -> &[u64] {
-        self.average_prices.values().as_ref()
+    pub const fn series(&self) -> &StringArray {
+        &self.series
     }
 
     #[must_use]
-    pub fn transaction_counts(&self) -> &[u64] {
-        self.transaction_counts.values().as_ref()
+    pub fn values(&self) -> &[f64] {
+        self.values.values().as_ref()
+    }
+
+    #[must_use]
+    pub fn observation_counts(&self) -> &[u64] {
+        self.observation_counts.values().as_ref()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimeSeriesAnalysis {
+    row_count: usize,
+    series_count: usize,
+    minimum_value: Option<f64>,
+    maximum_value: Option<f64>,
+}
+
+impl TimeSeriesAnalysis {
+    #[must_use]
+    pub const fn row_count(&self) -> usize {
+        self.row_count
+    }
+
+    #[must_use]
+    pub const fn series_count(&self) -> usize {
+        self.series_count
+    }
+
+    #[must_use]
+    pub const fn minimum_value(&self) -> Option<f64> {
+        self.minimum_value
+    }
+
+    #[must_use]
+    pub const fn maximum_value(&self) -> Option<f64> {
+        self.maximum_value
     }
 }
 
 #[derive(Debug, Error)]
-pub enum YearlyPriceArrowError {
+pub enum TimeSeriesArrowError {
     #[error("could not decode the Arrow IPC stream: {0}")]
     Ipc(#[from] ArrowError),
 
@@ -59,74 +95,78 @@ pub enum YearlyPriceArrowError {
         name: &'static str,
         null_count: usize,
     },
+
+    #[error("Arrow column `value` contains a non-finite value at index {index}")]
+    NonFiniteValue { index: usize },
 }
 
 fn typed_column<'a, T>(
     batch: &'a RecordBatch,
     name: &'static str,
     expected: DataType,
-) -> Result<&'a T, YearlyPriceArrowError>
+) -> Result<&'a T, TimeSeriesArrowError>
 where
     T: 'static,
 {
     let column = batch
         .column_by_name(name)
-        .ok_or(YearlyPriceArrowError::MissingColumn { name })?;
+        .ok_or(TimeSeriesArrowError::MissingColumn { name })?;
 
     column
         .as_any()
         .downcast_ref::<T>()
-        .ok_or_else(|| YearlyPriceArrowError::UnexpectedColumnType {
+        .ok_or_else(|| TimeSeriesArrowError::UnexpectedColumnType {
             name,
             expected,
             actual: column.data_type().clone(),
         })
 }
 
-fn require_no_nulls(column: &dyn Array, name: &'static str) -> Result<(), YearlyPriceArrowError> {
+fn require_no_nulls(column: &dyn Array, name: &'static str) -> Result<(), TimeSeriesArrowError> {
     let null_count = column.null_count();
 
     if null_count > 0 {
-        return Err(YearlyPriceArrowError::NullValues { name, null_count });
+        return Err(TimeSeriesArrowError::NullValues { name, null_count });
     }
 
     Ok(())
 }
 
-fn decode_batch(batch: &RecordBatch) -> Result<YearlyPriceBatch, YearlyPriceArrowError> {
-    let years = typed_column::<UInt16Array>(batch, "year", DataType::UInt16)?.clone();
+fn decode_batch(batch: &RecordBatch) -> Result<TimeSeriesBatch, TimeSeriesArrowError> {
+    let period_starts =
+        typed_column::<Date32Array>(batch, "period_start", DataType::Date32)?.clone();
+    let series = typed_column::<StringArray>(batch, "series", DataType::Utf8)?.clone();
+    let values = typed_column::<Float64Array>(batch, "value", DataType::Float64)?.clone();
+    let observation_counts =
+        typed_column::<UInt64Array>(batch, "observation_count", DataType::UInt64)?.clone();
 
-    let average_prices =
-        typed_column::<UInt64Array>(batch, "average_price", DataType::UInt64)?.clone();
+    require_no_nulls(&period_starts, "period_start")?;
+    require_no_nulls(&series, "series")?;
+    require_no_nulls(&values, "value")?;
+    require_no_nulls(&observation_counts, "observation_count")?;
 
-    let transaction_counts =
-        typed_column::<UInt64Array>(batch, "transaction_count", DataType::UInt64)?.clone();
+    if let Some(index) = values.values().iter().position(|value| !value.is_finite()) {
+        return Err(TimeSeriesArrowError::NonFiniteValue { index });
+    }
 
-    require_no_nulls(&years, "year")?;
-    require_no_nulls(&average_prices, "average_price")?;
-    require_no_nulls(&transaction_counts, "transaction_count")?;
-
-    Ok(YearlyPriceBatch {
-        years,
-        average_prices,
-        transaction_counts,
+    Ok(TimeSeriesBatch {
+        period_starts,
+        series,
+        values,
+        observation_counts,
     })
 }
 
-/// Decodes yearly property-price batches from an Arrow IPC stream.
+/// Decodes generic time-series batches from an Arrow IPC stream.
 ///
 /// # Errors
 ///
-/// Returns [`YearlyPriceArrowError`] when the IPC bytes are invalid, a
-/// required column is missing, a column has an unexpected type, or a required
-/// value is null.
-pub fn decode_yearly_price_stream(
+/// Returns [`TimeSeriesArrowError`] when the IPC bytes or physical schema do
+/// not satisfy the time-series contract.
+pub fn decode_time_series_stream(
     bytes: &[u8],
-) -> Result<Vec<YearlyPriceBatch>, YearlyPriceArrowError> {
-    let cursor = Cursor::new(bytes);
-
-    let reader = StreamReader::try_new(cursor, None)?;
-
+) -> Result<Vec<TimeSeriesBatch>, TimeSeriesArrowError> {
+    let reader = StreamReader::try_new(Cursor::new(bytes), None)?;
     let mut batches = Vec::new();
 
     for batch in reader {
@@ -136,43 +176,88 @@ pub fn decode_yearly_price_stream(
     Ok(batches)
 }
 
+#[must_use]
+pub fn analyze_time_series(batches: &[TimeSeriesBatch]) -> TimeSeriesAnalysis {
+    let mut series = HashSet::new();
+    let mut row_count = 0;
+    let mut minimum_value = None::<f64>;
+    let mut maximum_value = None::<f64>;
+
+    for batch in batches {
+        row_count += batch.len();
+
+        for index in 0..batch.len() {
+            series.insert(batch.series.value(index));
+
+            let value = batch.values.value(index);
+            minimum_value = Some(minimum_value.map_or(value, |current| current.min(value)));
+            maximum_value = Some(maximum_value.map_or(value, |current| current.max(value)));
+        }
+    }
+
+    TimeSeriesAnalysis {
+        row_count,
+        series_count: series.len(),
+        minimum_value,
+        maximum_value,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::decode_yearly_price_stream;
-    const CLICKHOUSE_STREAM: &[u8] = include_bytes!("../tests/fixtures/manchester-yearly.arrow");
+    use super::{analyze_time_series, decode_time_series_stream};
+
+    const MANCHESTER_YEARLY: &[u8] =
+        include_bytes!("../tests/fixtures/manchester-yearly-generic.arrow");
+    const LEEDS_BRISTOL_MONTHLY: &[u8] =
+        include_bytes!("../tests/fixtures/leeds-bristol-monthly-volume.arrow");
+    const OLD_SCHEMA: &[u8] = include_bytes!("../tests/fixtures/manchester-yearly.arrow");
 
     #[test]
-    fn decodes_the_real_clickhouse_arrow_stream() {
-        let batches = decode_yearly_price_stream(CLICKHOUSE_STREAM)
-            .expect("ClickHouse fixture should be valid Arrow IPC");
+    fn decodes_yearly_average_prices_from_clickhouse() {
+        let batches = decode_time_series_stream(MANCHESTER_YEARLY)
+            .expect("ClickHouse fixture should satisfy the time-series contract");
+        let analysis = analyze_time_series(&batches);
 
-        assert_eq!(batches.len(), 1);
+        assert_eq!(analysis.row_count(), 9);
+        assert_eq!(analysis.series_count(), 1);
+        assert!(analysis.minimum_value().is_some());
+        assert!(analysis.maximum_value().is_some());
+        assert!(batches.iter().all(|batch| {
+            (0..batch.len()).all(|index| batch.series().value(index) == "MANCHESTER")
+        }));
+    }
 
-        let batch = &batches[0];
+    #[test]
+    fn decodes_monthly_multi_series_volume_from_clickhouse() {
+        let batches = decode_time_series_stream(LEEDS_BRISTOL_MONTHLY)
+            .expect("ClickHouse fixture should satisfy the time-series contract");
+        let analysis = analyze_time_series(&batches);
 
-        assert_eq!(
-            batch.years(),
-            &[2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023]
-        );
+        assert_eq!(analysis.row_count(), 96);
+        assert_eq!(analysis.series_count(), 2);
+        assert!(batches.iter().all(|batch| {
+            batch
+                .values()
+                .iter()
+                .zip(batch.observation_counts())
+                .all(|(value, count)| {
+                    u32::try_from(*count)
+                        .is_ok_and(|count| (*value - f64::from(count)).abs() < f64::EPSILON)
+                })
+        }));
+    }
 
-        assert_eq!(
-            batch.average_prices(),
-            &[
-                196_044, 203_230, 252_443, 276_870, 247_844, 267_960, 301_672, 301_560, 270_667,
-            ]
-        );
+    #[test]
+    fn rejects_the_previous_specialized_schema() {
+        let result = decode_time_series_stream(OLD_SCHEMA);
 
-        assert_eq!(
-            batch.transaction_counts(),
-            &[
-                16_645, 18_460, 18_427, 18_291, 17_358, 15_872, 20_571, 16_500, 9_595,
-            ]
-        );
+        assert!(result.is_err());
     }
 
     #[test]
     fn rejects_non_arrow_bytes() {
-        let result = decode_yearly_price_stream(b"this is not Arrow");
+        let result = decode_time_series_stream(b"this is not Arrow");
 
         assert!(result.is_err());
     }

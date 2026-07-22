@@ -3,27 +3,10 @@ import type { Readable } from "node:stream";
 import type { ResponseHeaders } from "@clickhouse/client";
 import { ResultAsync } from "neverthrow";
 
+import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
+import { compileTimeSeriesQuery } from "@/lib/time-series/query-compiler";
+
 import { getClickHouseClient } from "./client";
-
-const YEARLY_PRICE_ARROW_QUERY = `
-  SELECT
-    toUInt16(toYear(date)) AS year,
-    toUInt64(round(avg(price))) AS average_price,
-    toUInt64(count()) AS transaction_count
-  FROM pp_complete
-  WHERE date >= {dateFrom: Date}
-    AND date <= {dateTo: Date}
-    AND town = {town: String}
-  GROUP BY year
-  ORDER BY year ASC
-  FORMAT ArrowStream
-`;
-
-export type YearlyPriceArrowInput = {
-  readonly dateFrom: string;
-  readonly dateTo: string;
-  readonly town: string;
-};
 
 export type ArrowStreamResult = {
   readonly stream: Readable;
@@ -48,20 +31,20 @@ function toArrowStreamQueryError(cause: unknown): ArrowStreamQueryError {
   };
 }
 
-export function queryYearlyPricesAsArrow(
-  input: YearlyPriceArrowInput,
+export function queryTimeSeriesAsArrow(
+  request: TimeSeriesRequest,
 ): ResultAsync<ArrowStreamResult, ArrowStreamQueryError> {
+  const compiled = compileTimeSeriesQuery(request);
+
   return ResultAsync.fromPromise(
     getClickHouseClient().exec({
-      query: YEARLY_PRICE_ARROW_QUERY,
-      query_params: {
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-        town: input.town.toUpperCase(),
-      },
+      query: compiled.query,
+      query_params: compiled.queryParams,
       clickhouse_settings: {
-        max_execution_time: 10,
-        max_result_rows: "30",
+        max_execution_time: 15,
+        max_result_rows: "2000",
+        output_format_arrow_compression_method: "lz4_frame",
+        output_format_arrow_string_as_string: 1,
         result_overflow_mode: "throw",
       },
     }),

@@ -1,27 +1,36 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export class TimeSeriesAnalysis {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly maximum_value: number | undefined;
+    readonly minimum_value: number | undefined;
+    readonly row_count: number;
+    readonly series_count: number;
+}
+
 /**
- * Decode a `ClickHouse` Arrow IPC stream and return its total row count.
- * JavaScript will call this function with a `Uint8Array`. The generated
- * wasm-bindgen glue copies those bytes into WebAssembly linear memory and
- * passes Rust a borrowed byte slice:
- *
- * JavaScript `Uint8Array` -> WASM memory -> `&[u8]`
- * The returned `u32` becomes a normal JavaScript number.
+ * Decodes and analyzes a generic time-series Arrow IPC stream.
  *
  * # Errors
  *
- * Returns a JavaScript error value when the bytes are not a valid yearly-price
- * Arrow stream or when the row count cannot fit inside a `u32`.
+ * Returns a JavaScript error value when the bytes violate the time-series
+ * schema or an analysis count cannot fit inside a `u32`.
  */
-export function yearly_price_row_count(bytes: Uint8Array): number;
+export function analyze_time_series_arrow(bytes: Uint8Array): TimeSeriesAnalysis;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly yearly_price_row_count: (a: number, b: number, c: number) => void;
+    readonly __wbg_timeseriesanalysis_free: (a: number, b: number) => void;
+    readonly analyze_time_series_arrow: (a: number, b: number, c: number) => void;
+    readonly timeseriesanalysis_maximum_value: (a: number, b: number) => void;
+    readonly timeseriesanalysis_minimum_value: (a: number, b: number) => void;
+    readonly timeseriesanalysis_row_count: (a: number) => number;
+    readonly timeseriesanalysis_series_count: (a: number) => number;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export: (a: number, b: number) => number;
 }
