@@ -15,7 +15,7 @@ import {
 } from "@/lib/query-arena/history";
 import { promoteRecipe } from "@/lib/query-arena/recipe-registry";
 import { evaluateQueryArena, benchmarkTime } from "@/lib/query-arena/result";
-import { timeSeriesRequestSchema } from "@/lib/time-series/contracts";
+import { queryArenaTimeSeriesRequestSchema } from "@/lib/time-series/contracts";
 
 const STRATEGIES = queryStrategySchema.options;
 const TRIAL_COUNT = 3;
@@ -23,11 +23,11 @@ const TRIAL_COUNT = 3;
 const queryArenaPayloadSchema = z.object({
   arenaId: z.uuid(),
   signature: z.string().regex(/^[a-f0-9]{64}$/),
-  request: timeSeriesRequestSchema,
+  request: queryArenaTimeSeriesRequestSchema,
 });
 
 async function runStrategy(
-  request: z.infer<typeof timeSeriesRequestSchema>,
+  request: z.infer<typeof queryArenaTimeSeriesRequestSchema>,
   strategy: QueryStrategy,
 ): Promise<StrategyBenchmark> {
   const trials = [];

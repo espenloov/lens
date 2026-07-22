@@ -1,11 +1,13 @@
 "use client";
 
 import axios from "axios";
-import { ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 
 import {
   decodeTimeSeries,
+  deriveTimeSeries,
   type TimeSeriesColumns,
+  type TimeSeriesDerivedColumns,
   type TimeSeriesWasmError,
 } from "@/lib/wasm/time-series";
 import {
@@ -21,6 +23,7 @@ import {
 
 export type TimeSeriesLoadResult = {
   readonly columns: TimeSeriesColumns;
+  readonly derived: TimeSeriesDerivedColumns | null;
   readonly queryId: string | null;
   readonly analysisSignature: string | null;
   readonly strategy: QueryStrategy;
@@ -72,27 +75,44 @@ export function loadTimeSeries(
   ).andThen((response) => {
     const bytes = new Uint8Array(response.data);
     const responseReceivedAt = performance.now();
+    const arrowContract = response.headers["x-lens-arrow-contract"];
 
-    return decodeTimeSeries(bytes).map((decoded) => ({
-      columns: decoded.columns,
-      queryId:
-        typeof response.headers["x-clickhouse-query-id"] === "string"
-          ? response.headers["x-clickhouse-query-id"]
-          : null,
-      analysisSignature:
-        typeof response.headers["x-lens-analysis-signature"] === "string"
-          ? response.headers["x-lens-analysis-signature"]
-          : null,
-      strategy:
-        queryStrategySchema.safeParse(
-          response.headers["x-lens-query-strategy"],
-        ).data ?? "baseline",
-      arrowBytes: bytes.byteLength,
-      performance: calculateTimeSeriesPerformance({
-        requestStartedAt: startedAt,
-        responseReceivedAt,
-        wasm: decoded.timing,
-      }),
-    }));
+    if (arrowContract !== "time_series/v1") {
+      return errAsync({
+        kind: "time-series-fetch" as const,
+        message: "The endpoint returned an unsupported Arrow contract",
+        cause: arrowContract,
+      });
+    }
+
+    return decodeTimeSeries(bytes).andThen((decoded) => {
+      const transformStartedAt = performance.now();
+      const transformed = deriveTimeSeries(decoded.columns, request);
+      const rustTransformMs = performance.now() - transformStartedAt;
+
+      return transformed.map((derived) => ({
+        columns: decoded.columns,
+        derived,
+        queryId:
+          typeof response.headers["x-clickhouse-query-id"] === "string"
+            ? response.headers["x-clickhouse-query-id"]
+            : null,
+        analysisSignature:
+          typeof response.headers["x-lens-analysis-signature"] === "string"
+            ? response.headers["x-lens-analysis-signature"]
+            : null,
+        strategy:
+          queryStrategySchema.safeParse(
+            response.headers["x-lens-query-strategy"],
+          ).data ?? "baseline",
+        arrowBytes: bytes.byteLength,
+        performance: calculateTimeSeriesPerformance({
+          requestStartedAt: startedAt,
+          responseReceivedAt,
+          wasm: decoded.timing,
+          rustTransformMs,
+        }),
+      }));
+    });
   });
 }

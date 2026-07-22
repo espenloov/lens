@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { timeSeriesRequestSchema } from "../time-series/contracts";
+import { queryArenaTimeSeriesRequestSchema } from "../time-series/contracts";
 
 export const queryStrategySchema = z.enum(["baseline", "prewhere"]);
 
@@ -92,7 +92,7 @@ export const queryArenaMetadataSchema = z.object({
 });
 
 export const queryArenaStartSchema = z.object({
-  request: timeSeriesRequestSchema,
+  request: queryArenaTimeSeriesRequestSchema,
 });
 
 export const queryArenaStartResponseSchema = z.object({

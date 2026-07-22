@@ -1,4 +1,7 @@
-use std::{collections::HashSet, io::Cursor};
+use std::{
+    collections::{HashMap, HashSet},
+    io::Cursor,
+};
 
 use arrow_array::{Array, Date32Array, Float64Array, RecordBatch, StringArray, UInt64Array};
 use arrow_ipc::reader::StreamReader;
@@ -284,22 +287,24 @@ pub fn collect_time_series(
     let mut values = Vec::with_capacity(row_count);
     let mut observation_counts = Vec::with_capacity(row_count);
     let mut series_names = Vec::<String>::new();
+    let mut series_lookup = HashMap::<String, u32>::new();
 
     for batch in batches {
         for index in 0..batch.len() {
             let series_name = batch.series().value(index);
-            let series_index = series_names
-                .iter()
-                .position(|candidate| candidate == series_name)
-                .unwrap_or_else(|| {
-                    series_names.push(series_name.to_owned());
-                    series_names.len() - 1
-                });
+            let series_index = if let Some(existing) = series_lookup.get(series_name) {
+                *existing
+            } else {
+                let next = u32::try_from(series_names.len())
+                    .map_err(|_| TimeSeriesArrowError::TooManySeries)?;
+                let owned = series_name.to_owned();
+                series_names.push(owned.clone());
+                series_lookup.insert(owned, next);
+                next
+            };
 
             period_starts.push(batch.period_starts()[index]);
-            series_indexes.push(
-                u32::try_from(series_index).map_err(|_| TimeSeriesArrowError::TooManySeries)?,
-            );
+            series_indexes.push(series_index);
             values.push(batch.values()[index]);
             observation_counts.push(batch.observation_counts()[index]);
         }

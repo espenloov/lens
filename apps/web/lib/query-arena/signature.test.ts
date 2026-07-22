@@ -2,19 +2,31 @@ import { describe, expect, it } from "vitest";
 
 import { timeSeriesRequestSchema } from "../time-series/contracts";
 
-import { createAnalysisSignature, createArenaId } from "./signature";
+import {
+  createAnalysisSignature,
+  createArenaId,
+  supportsQueryArena,
+} from "./signature";
 
-function request(locations: string[], propertyTypes: string[] = []) {
+function request(locations: string[], metric = "average_price") {
   return timeSeriesRequestSchema.parse({
-    metric: "average_price",
+    shape: "time_series",
+    operation: "comparison",
+    metric,
     interval: "year",
-    dateFrom: "2018-01-01",
-    dateTo: "2018-12-31",
-    location: {
-      level: "town",
-      values: locations,
+    seriesBy: "town",
+    transform: "value",
+    anomalyThreshold: null,
+    filters: {
+      dateFrom: "2018-01-01",
+      dateTo: "2018-12-31",
+      location: { level: "town", values: locations },
+      propertyTypes: [],
+      newBuild: null,
+      tenure: [],
+      minimumPrice: null,
+      maximumPrice: null,
     },
-    propertyTypes,
   });
 }
 
@@ -27,7 +39,13 @@ describe("createAnalysisSignature", () => {
 
   it("changes when the analysis meaning changes", () => {
     expect(createAnalysisSignature(request(["Manchester"]))).not.toBe(
-      createAnalysisSignature(request(["Manchester"], ["flat"])),
+      createAnalysisSignature(request(["Manchester"], "transaction_count")),
+    );
+  });
+
+  it("excludes approximate medians from exact verification", () => {
+    expect(supportsQueryArena(request(["Manchester"], "median_price"))).toBe(
+      false,
     );
   });
 });

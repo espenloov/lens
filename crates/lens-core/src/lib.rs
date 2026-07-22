@@ -1,4 +1,7 @@
+pub mod analysis_frames;
+pub mod analytics;
 pub mod arrow_stream;
+pub mod exploration;
 pub mod verification;
 pub const ENGINE_NAME: &str = "lens-core";
 

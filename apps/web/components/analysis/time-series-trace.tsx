@@ -10,6 +10,7 @@ import {
 
 import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 import type { TimeSeriesLoadResult } from "@/lib/time-series/load";
+import { supportsQueryArena } from "@/lib/query-arena/signature";
 
 import {
   formatBytes,
@@ -102,6 +103,10 @@ function formatPeriod(period: number, interval: TimeSeriesRequest["interval"]) {
     return String(date.getUTCFullYear());
   }
 
+  if (interval === "quarter") {
+    return `${date.getUTCFullYear()} Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
+  }
+
   return new Intl.DateTimeFormat("en-GB", {
     month: "short",
     year: "numeric",
@@ -113,8 +118,13 @@ function formatMetric(
   value: number,
   metric: TimeSeriesRequest["metric"],
   compact = false,
+  percent = false,
 ) {
-  if (metric === "average_price") {
+  if (percent) {
+    return `${value.toFixed(compact ? 0 : 1)}%`;
+  }
+
+  if (metric === "average_price" || metric === "median_price") {
     return compact ? formatCompactPrice(value) : formatPrice(value);
   }
 
@@ -128,6 +138,7 @@ export function TimeSeriesTrace({
   loaded,
 }: TimeSeriesTraceProps) {
   const { columns } = loaded;
+  const derived = loaded.derived;
   const { performance } = loaded;
   const periods = useMemo(
     () => uniquePeriods(columns.periodStarts),
@@ -141,6 +152,14 @@ export function TimeSeriesTrace({
     const rows = Array.from({ length: columns.seriesCount }, () => [] as number[]);
 
     for (let row = 0; row < columns.rowCount; row += 1) {
+      if (
+        derived !== null &&
+        derived.kind !== "anomaly_score" &&
+        derived.validity[row] !== 1
+      ) {
+        continue;
+      }
+
       const seriesIndex = columns.seriesIndexes[row];
 
       if (seriesIndex !== undefined) {
@@ -149,15 +168,30 @@ export function TimeSeriesTrace({
     }
 
     return rows;
-  }, [columns]);
+  }, [columns, derived]);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(
     Math.max(0, periods.length - 1),
   );
   const { containerRef, width } = useContainerWidth();
   const titleId = useId();
   const descriptionId = useId();
+  const displayValues =
+    derived !== null && derived.kind !== "anomaly_score"
+      ? derived.values
+      : columns.values;
+  const displaysPercent =
+    derived?.kind === "period_change_percent" || derived?.kind === "share";
+  const visibleRows = Array.from(
+    { length: columns.rowCount },
+    (_, row) => row,
+  ).filter(
+    (row) =>
+      derived === null ||
+      derived.kind === "anomaly_score" ||
+      derived.validity[row] === 1,
+  );
 
-  if (periods.length === 0 || columns.values.length === 0) {
+  if (periods.length === 0 || displayValues.length === 0) {
     return (
       <section aria-labelledby={titleId} className="space-y-2 border-y py-6">
         <h2 className="text-xl font-medium" id={titleId}>
@@ -183,14 +217,39 @@ export function TimeSeriesTrace({
   let minimumValue = Number.POSITIVE_INFINITY;
   let maximumValue = Number.NEGATIVE_INFINITY;
 
-  for (const value of columns.values) {
+  for (let row = 0; row < displayValues.length; row += 1) {
+    if (
+      derived !== null &&
+      derived.kind !== "anomaly_score" &&
+      derived.validity[row] !== 1
+    ) {
+      continue;
+    }
+
+    const value = displayValues[row];
     minimumValue = Math.min(minimumValue, value);
     maximumValue = Math.max(maximumValue, value);
   }
 
-  const valueRange = Math.max(1, maximumValue - minimumValue);
-  const paddedMinimum = Math.max(0, minimumValue - valueRange * 0.1);
-  const paddedMaximum = maximumValue + valueRange * 0.1;
+  if (!Number.isFinite(minimumValue) || !Number.isFinite(maximumValue)) {
+    return (
+      <section aria-labelledby={titleId} className="space-y-2 border-y py-6">
+        <h2 className="text-xl font-medium" id={titleId}>{title}</h2>
+        <p className="text-sm text-muted-foreground">
+          This calculation needs at least two adjacent periods.
+        </p>
+      </section>
+    );
+  }
+
+  const signedDomain = derived?.kind === "period_change_percent";
+  const domainMinimum = signedDomain ? Math.min(0, minimumValue) : minimumValue;
+  const domainMaximum = signedDomain ? Math.max(0, maximumValue) : maximumValue;
+  const valueRange = Math.max(1, domainMaximum - domainMinimum);
+  const paddedMinimum = signedDomain
+    ? domainMinimum - valueRange * 0.1
+    : Math.max(0, domainMinimum - valueRange * 0.1);
+  const paddedMaximum = domainMaximum + valueRange * 0.1;
   const paddedRange = paddedMaximum - paddedMinimum;
   const yForValue = (value: number) =>
     margin.top + ((paddedMaximum - value) / paddedRange) * plotHeight;
@@ -203,7 +262,14 @@ export function TimeSeriesTrace({
   const selectedRows: number[] = [];
 
   for (let row = 0; row < columns.rowCount; row += 1) {
-    if (columns.periodStarts[row] === selectedPeriod) {
+    if (
+      columns.periodStarts[row] === selectedPeriod &&
+      !(
+        derived !== null &&
+        derived.kind !== "anomaly_score" &&
+        derived.validity[row] !== 1
+      )
+    ) {
       selectedRows.push(row);
     }
   }
@@ -215,8 +281,8 @@ export function TimeSeriesTrace({
 
     const leftRow = selectedRows[0];
     const rightRow = selectedRows[1];
-    const leftValue = columns.values[leftRow];
-    const rightValue = columns.values[rightRow];
+    const leftValue = displayValues[leftRow];
+    const rightValue = displayValues[rightRow];
 
     if (leftValue === rightValue) {
       return {
@@ -228,11 +294,11 @@ export function TimeSeriesTrace({
 
     const higherRow = leftValue > rightValue ? leftRow : rightRow;
     const lowerRow = higherRow === leftRow ? rightRow : leftRow;
-    const difference = columns.values[higherRow] - columns.values[lowerRow];
+    const difference = displayValues[higherRow] - displayValues[lowerRow];
     const percentage =
-      columns.values[lowerRow] === 0
+      displayValues[lowerRow] === 0
         ? null
-        : (difference / columns.values[lowerRow]) * 100;
+        : (difference / displayValues[lowerRow]) * 100;
 
     return {
       equal: false as const,
@@ -247,9 +313,15 @@ export function TimeSeriesTrace({
     <article className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {request.metric === "average_price"
-            ? "Average sale price"
-            : "Transaction volume"}
+          {derived?.kind === "period_change_percent"
+            ? "Period change"
+            : derived?.kind === "share"
+              ? "Share of transactions"
+              : request.metric === "average_price"
+                ? "Average sale price"
+                : request.metric === "median_price"
+                  ? "Estimated median sale price"
+                  : "Transaction volume"}
         </p>
         <h2 className="text-2xl font-medium tracking-tight" id={titleId}>
           {title}
@@ -309,7 +381,7 @@ export function TimeSeriesTrace({
                     x={margin.left - 10}
                     y={y + 4}
                   >
-                    {formatMetric(tick, request.metric, true)}
+                    {formatMetric(tick, request.metric, true, displaysPercent)}
                   </text>
                 </g>
               );
@@ -328,7 +400,7 @@ export function TimeSeriesTrace({
               const path = rows
                 .map((row, index) => {
                   const command = index === 0 ? "M" : "L";
-                  return `${command}${xForPeriod(columns.periodStarts[row]).toFixed(2)},${yForValue(columns.values[row]).toFixed(2)}`;
+                  return `${command}${xForPeriod(columns.periodStarts[row]).toFixed(2)},${yForValue(displayValues[row]).toFixed(2)}`;
                 })
                 .join(" ");
 
@@ -345,7 +417,7 @@ export function TimeSeriesTrace({
                   {rows.map((row) => (
                     <circle
                       cx={xForPeriod(columns.periodStarts[row])}
-                      cy={yForValue(columns.values[row])}
+                      cy={yForValue(displayValues[row])}
                       fill={SERIES_COLORS[seriesIndex % SERIES_COLORS.length]}
                       key={columns.periodStarts[row]}
                       onPointerEnter={() =>
@@ -354,6 +426,18 @@ export function TimeSeriesTrace({
                         )
                       }
                       r={columns.periodStarts[row] === selectedPeriod ? 4 : 2}
+                      stroke={
+                        derived?.kind === "anomaly_score" &&
+                        derived.flags[row] === 1
+                          ? "var(--destructive)"
+                          : "none"
+                      }
+                      strokeWidth={
+                        derived?.kind === "anomaly_score" &&
+                        derived.flags[row] === 1
+                          ? 4
+                          : 0
+                      }
                     />
                   ))}
                 </g>
@@ -401,8 +485,13 @@ export function TimeSeriesTrace({
             <span key={columns.seriesIndexes[row]}>
               <span aria-hidden="true"> · </span>
               {columns.seriesNames[columns.seriesIndexes[row]]}: {" "}
-              {formatMetric(columns.values[row], request.metric)}
-              {request.metric === "average_price" && (
+              {formatMetric(
+                displayValues[row],
+                request.metric,
+                false,
+                displaysPercent,
+              )}
+              {request.metric !== "transaction_count" && !displaysPercent && (
                 <span className="text-muted-foreground">
                   {" "}
                   ({formatCount(Number(columns.observationCounts[row]))} sales)
@@ -414,7 +503,7 @@ export function TimeSeriesTrace({
             <span className="mt-2 block font-medium">
               {comparison.equal
                 ? `${comparison.leftName} and ${comparison.rightName} are equal.`
-                : `${comparison.higherName} is ${formatMetric(comparison.difference, request.metric)}${
+                : `${comparison.higherName} is ${formatMetric(comparison.difference, request.metric, false, displaysPercent)}${
                     comparison.percentage === null
                       ? ""
                       : ` (${comparison.percentage.toFixed(1)}%)`
@@ -428,7 +517,7 @@ export function TimeSeriesTrace({
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Binary pipeline
         </p>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-5">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-6">
           <div className="bg-background p-3">
             <dt className="text-xs text-muted-foreground">Arrow payload</dt>
             <dd className="mt-1 font-mono text-sm">
@@ -461,6 +550,14 @@ export function TimeSeriesTrace({
               {formatComputeDuration(performance.rustDecodeMs)}
             </dd>
           </div>
+          <div className="bg-background p-3">
+            <dt className="text-xs text-muted-foreground">Rust analysis</dt>
+            <dd className="mt-1 font-mono text-sm">
+              {loaded.derived === null
+                ? "not needed"
+                : formatComputeDuration(performance.rustTransformMs)}
+            </dd>
+          </div>
         </dl>
         {loaded.queryId !== null && (
           <p className="truncate font-mono text-xs text-muted-foreground">
@@ -469,10 +566,12 @@ export function TimeSeriesTrace({
         )}
       </section>
 
-      <QueryArenaCard
-        currentStrategy={loaded.strategy}
-        request={request}
-      />
+      {supportsQueryArena(request) && (
+        <QueryArenaCard
+          currentStrategy={loaded.strategy}
+          request={request}
+        />
+      )}
 
       <details className="border-t pt-4">
         <summary className="cursor-pointer text-sm font-medium">
@@ -485,10 +584,17 @@ export function TimeSeriesTrace({
                 <th className="py-2 pr-4">Period</th>
                 <th className="py-2 pr-4">Series</th>
                 <th className="py-2 text-right">Value</th>
+                {derived?.kind === "anomaly_score" && (
+                  <>
+                    <th className="py-2 text-right">Expected</th>
+                    <th className="py-2 text-right">Robust score</th>
+                    <th className="py-2 text-right">Finding</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: columns.rowCount }, (_, row) => (
+              {visibleRows.map((row) => (
                 <tr className="border-b" key={`${columns.periodStarts[row]}-${columns.seriesIndexes[row]}`}>
                   <td className="py-2 pr-4">
                     {formatPeriod(columns.periodStarts[row], request.interval)}
@@ -497,8 +603,37 @@ export function TimeSeriesTrace({
                     {columns.seriesNames[columns.seriesIndexes[row]]}
                   </td>
                   <td className="py-2 text-right tabular-nums">
-                    {formatMetric(columns.values[row], request.metric)}
+                    {formatMetric(
+                      displayValues[row],
+                      request.metric,
+                      false,
+                      displaysPercent,
+                    )}
                   </td>
+                  {derived?.kind === "anomaly_score" && (
+                    <>
+                      <td className="py-2 text-right tabular-nums">
+                        {derived.validity[row] === 1
+                          ? formatMetric(
+                              derived.expected[row],
+                              request.metric,
+                            )
+                          : "—"}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {derived.validity[row] === 1
+                          ? derived.scores[row].toFixed(2)
+                          : "—"}
+                      </td>
+                      <td className="py-2 text-right">
+                        {derived.validity[row] !== 1
+                          ? "Insufficient history"
+                          : derived.flags[row] === 1
+                            ? "Unusual"
+                            : "Expected"}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
