@@ -1,17 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Database,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { BrandMark } from "@/components/brand-mark";
 import { DataSourceManager } from "@/components/data-sources/data-source-manager";
-import { fetchDataSources } from "@/lib/data-sources/client";
+import { DeleteDataSourceDialog } from "@/components/data-sources/delete-data-source-dialog";
+import {
+  deleteRegisteredDataSource,
+  fetchDataSources,
+} from "@/lib/data-sources/client";
 import {
   BUILTIN_DATA_SOURCE,
   toDataSourceSummary,
@@ -31,7 +36,11 @@ function capabilityCount(source: DataSourceSummary): number {
 
 export function DataSourceSelection() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [deletingSource, setDeletingSource] =
+    useState<DataSourceSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const sources = useQuery({
     queryKey: ["data-sources"],
     queryFn: async () => await fetchDataSources(),
@@ -44,6 +53,29 @@ export function DataSourceSelection() {
     registry?.sources ?? [toDataSourceSummary(BUILTIN_DATA_SOURCE, true)];
   const error =
     sources.data?.isErr() === true ? sources.data.error : null;
+  const connectionLabel = sources.isLoading
+    ? "Checking ClickHouse"
+    : registry === null
+      ? "Private sources locked"
+      : "ClickHouse connected";
+  const errorMessage =
+    error?.message.includes("DATA_SOURCE_ADMIN_TOKEN") === true
+      ? "Configure this deployment before unlocking private ClickHouse sources."
+      : error?.message;
+  const deleteMutation = useMutation({
+    mutationFn: async (source: DataSourceSummary) =>
+      await deleteRegisteredDataSource(source.slug),
+    onSuccess: async (result) => {
+      if (result.isErr()) {
+        setDeleteError(result.error.message);
+        return;
+      }
+
+      setDeletingSource(null);
+      setDeleteError(null);
+      await queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+    },
+  });
 
   function openSource(source: DataSourceSummary) {
     const parameters = new URLSearchParams({
@@ -83,8 +115,12 @@ export function DataSourceSelection() {
       <header className="flex items-center justify-between">
         <BrandMark label size={48} />
         <span className="flex items-center gap-2 text-xs text-[var(--ink-tertiary)]">
-          <span className="size-2 rounded-full bg-[#21c5be]" />
-          ClickHouse connected
+          <span
+            className={`size-2 rounded-full ${
+              registry === null ? "bg-[#f5c400]" : "bg-[#21c5be]"
+            }`}
+          />
+          {connectionLabel}
         </span>
       </header>
 
@@ -140,38 +176,55 @@ export function DataSourceSelection() {
                   </div>
                 ))
               : availableSources.map((source, index) => (
-                  <button
-                    className={`analysis-tile group flex min-h-44 flex-col p-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgb(45_57_84_/_11%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7] motion-reduce:transition-none ${
+                  <article
+                    className={`analysis-tile group relative min-h-44 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgb(45_57_84_/_11%)] motion-reduce:transition-none ${
                       index === 0 ? "sm:col-span-2" : ""
                     }`}
                     key={`${source.slug}:${source.version}`}
-                    onClick={() => openSource(source)}
-                    type="button"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="grid size-10 place-items-center rounded-[0.9rem] bg-[#f5c400]/13 text-[#8b7100]">
-                        <Database aria-hidden="true" className="size-4" />
-                      </span>
-                      <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#176f6b]">
-                        <span className="size-1.5 rounded-full bg-[#21c5be]" />
-                        Ready
-                      </span>
-                    </div>
-                    <div className="mt-auto pt-7">
-                      <h3 className="truncate text-base font-semibold tracking-[-0.025em] text-[var(--ink)]">
-                        {source.displayName}
-                      </h3>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-[var(--ink-tertiary)]">
-                        <span>{formatRows(source.rowCount)} rows</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{capabilityCount(source)} analysis modes</span>
+                    <button
+                      className="flex h-full min-h-44 w-full flex-col p-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7]"
+                      onClick={() => openSource(source)}
+                      type="button"
+                    >
+                      <div className="flex w-full items-start justify-between gap-3">
+                        <span className="grid size-10 place-items-center rounded-[0.9rem] bg-[#f5c400]/13 text-[#8b7100]">
+                          <Database aria-hidden="true" className="size-4" />
+                        </span>
+                        <span className={`flex items-center gap-1.5 text-[10px] font-semibold text-[#176f6b] ${source.builtin ? "" : "mr-9"}`}>
+                          <span className="size-1.5 rounded-full bg-[#21c5be]" />
+                          Ready
+                        </span>
                       </div>
-                    </div>
-                    <ArrowRight
-                      aria-hidden="true"
-                      className="mt-4 size-4 text-[#697cc7] transition-transform group-hover:translate-x-1"
-                    />
-                  </button>
+                      <div className="mt-auto pt-7">
+                        <h3 className="truncate text-base font-semibold tracking-[-0.025em] text-[var(--ink)]">
+                          {source.displayName}
+                        </h3>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-[var(--ink-tertiary)]">
+                          <span>{formatRows(source.rowCount)} rows</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{capabilityCount(source)} analysis modes</span>
+                        </div>
+                      </div>
+                      <ArrowRight
+                        aria-hidden="true"
+                        className="mt-4 size-4 text-[#697cc7] transition-transform group-hover:translate-x-1"
+                      />
+                    </button>
+                    {!source.builtin && (
+                      <button
+                        aria-label={`Delete ${source.displayName}`}
+                        className="absolute right-4 top-4 z-10 grid size-9 place-items-center rounded-xl bg-white/70 text-[#8591a5] shadow-[0_6px_16px_rgb(45_57_84_/_8%)] backdrop-blur-lg transition-colors hover:bg-[#ff6372]/10 hover:text-[#b83448] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b83448]"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeletingSource(source);
+                        }}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" className="size-4" />
+                      </button>
+                    )}
+                  </article>
                 ))}
 
             <button
@@ -194,10 +247,24 @@ export function DataSourceSelection() {
           </div>
 
           {error !== null && (
-            <p className="mt-5 text-xs text-[#9f3948]">{error.message}</p>
+            <p className="mt-5 text-xs text-[#9f3948]">{errorMessage}</p>
           )}
         </section>
       </div>
+      {deletingSource !== null && (
+        <DeleteDataSourceDialog
+          error={deleteError}
+          onCancel={() => {
+            if (!deleteMutation.isPending) {
+              setDeletingSource(null);
+              setDeleteError(null);
+            }
+          }}
+          onConfirm={() => deleteMutation.mutate(deletingSource)}
+          pending={deleteMutation.isPending}
+          source={deletingSource}
+        />
+      )}
     </section>
   );
 }

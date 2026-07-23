@@ -16,13 +16,17 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ArrowUp,
+  ChevronRight,
+  Compass,
   Database,
   Gauge,
   History,
   House,
   LayoutDashboard,
+  Menu,
   Plus,
   Square,
+  X,
 } from "lucide-react";
 
 import {
@@ -33,6 +37,10 @@ import {
   AnalysisPerformanceProvider,
   useAnalysisPerformance,
 } from "@/components/analysis/performance-context";
+import {
+  AnalysisExplorationProvider,
+  type AnalysisDeepDiveAction,
+} from "@/components/analysis/analysis-exploration";
 import {
   AnalysisNavigationProvider,
   type PerformanceFocus,
@@ -56,6 +64,11 @@ type PropertyChatProps = {
   readonly chatId: string;
   readonly initialDataSource: DataSourceSummary;
   readonly initialDataSourceProfile: DataSourceProfile;
+};
+
+type ExplorationStep = {
+  readonly label: string;
+  readonly prompt: string;
 };
 
 type RailActionProps = {
@@ -462,8 +475,8 @@ function HistoryView({
           <p className="text-xs text-[#66758e]">This session</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[#09265b]">
             {questions.length === 0
-              ? "No analyses yet"
-              : `${questions.length} ${questions.length === 1 ? "analysis" : "analyses"}`}
+              ? "No questions yet"
+              : `${questions.length} ${questions.length === 1 ? "question" : "questions"}`}
           </h2>
           <div className="soft-scrollbar mt-6 max-h-[24rem] divide-y divide-[#09265b]/8 overflow-y-auto">
             {questions.map((question, index) => (
@@ -475,7 +488,7 @@ function HistoryView({
               >
                 <span>
                   <span className="block text-xs text-[#8591a5]">
-                    Analysis {String(index + 1).padStart(2, "0")}
+                    Question {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="mt-1 line-clamp-2 block text-sm font-medium leading-5 text-[#09265b]">
                     {question}
@@ -522,7 +535,11 @@ function PropertyChatWorkspace({
   const [performanceFocus, setPerformanceFocus] =
     useState<PerformanceFocus>("flow");
   const [askingAnother, setAskingAnother] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [explorationSteps, setExplorationSteps] = useState<
+    readonly ExplorationStep[]
+  >([]);
   const wasBusy = useRef(false);
   const router = useRouter();
   const activeSource = initialDataSource;
@@ -592,7 +609,7 @@ function PropertyChatWorkspace({
     latestUserIndex < 0 ? null : messages[latestUserIndex];
   const assistantMessages = messages.slice(latestUserIndex + 1);
   let latestToolPart: PropertyChatMessage["parts"][number] | null = null;
-  let latestAssistantTextPart: PropertyChatMessage["parts"][number] | null =
+  let latestAssistantResponsePart: PropertyChatMessage["parts"][number] | null =
     null;
 
   for (const message of assistantMessages) {
@@ -606,8 +623,11 @@ function PropertyChatWorkspace({
         part.type === "tool-submitSemanticAnalysisPlan"
       ) {
         latestToolPart = part;
-      } else if (part.type === "text" && part.text.length > 0) {
-        latestAssistantTextPart = part;
+      } else if (
+        part.type === "tool-respondWithoutAnalysis" ||
+        (part.type === "text" && part.text.length > 0)
+      ) {
+        latestAssistantResponsePart = part;
       }
     }
   }
@@ -635,7 +655,10 @@ function PropertyChatWorkspace({
     submitQuestion(input);
   }
 
-  function submitQuestion(value: string) {
+  function submitQuestion(
+    value: string,
+    trailMode: "reset" | "preserve" = "reset",
+  ) {
     const question = value.trim();
 
     if (!question || isBusy) {
@@ -645,16 +668,45 @@ function PropertyChatWorkspace({
     setActiveView("workspace");
     setAskingAnother(false);
     setSettling(false);
+    if (trailMode === "reset") {
+      setExplorationSteps([{ label: question, prompt: question }]);
+    }
     beginAnalysis(question, activeSource.slug, activeSource.version);
     void sendMessage({ text: question });
     setInput("");
   }
 
+  function runDeepDive(action: AnalysisDeepDiveAction) {
+    setExplorationSteps((current) => {
+      const root =
+        current.length > 0
+          ? current
+          : latestUserMessage === null
+            ? []
+            : [
+                {
+                  label: messageText(latestUserMessage),
+                  prompt: messageText(latestUserMessage),
+                },
+              ];
+
+      return [...root, action];
+    });
+    submitQuestion(action.prompt, "preserve");
+  }
+
+  function revisitExplorationStep(step: ExplorationStep, index: number) {
+    setExplorationSteps((current) => current.slice(0, index + 1));
+    submitQuestion(step.prompt, "preserve");
+  }
+
   function chooseDataSource() {
+    setMobileNavigationOpen(false);
     router.push("/");
   }
 
   function askAnother() {
+    setMobileNavigationOpen(false);
     setActiveView("workspace");
     setAskingAnother(true);
     window.setTimeout(
@@ -666,15 +718,27 @@ function PropertyChatWorkspace({
   function askAgain(question: string) {
     setInput(question);
     setActiveView("workspace");
+    setAskingAnother(true);
+    window.setTimeout(
+      () => document.querySelector<HTMLInputElement>("#question")?.focus(),
+      0,
+    );
   }
 
   function openPerformance(focus: PerformanceFocus = "flow") {
+    setMobileNavigationOpen(false);
     setPerformanceFocus(focus);
     setActiveView("performance");
   }
 
+  function openView(view: LensView) {
+    setMobileNavigationOpen(false);
+    setActiveView(view);
+  }
+
   return (
     <AnalysisNavigationProvider openPerformance={openPerformance}>
+      <AnalysisExplorationProvider runDeepDive={runDeepDive}>
       <section className="grid h-full min-h-0 grid-cols-1 sm:grid-cols-[76px_minmax(0,1fr)]">
         <nav
           aria-label="Lens views"
@@ -735,7 +799,7 @@ function PropertyChatWorkspace({
               : "grid-rows-[64px_minmax(0,1fr)]"
           }`}
         >
-          <header className="flex items-center justify-between border-b border-[var(--line)] px-5 sm:px-7">
+          <header className="relative z-40 flex items-center justify-between overflow-visible border-b border-[var(--line)] px-5 sm:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
@@ -748,6 +812,25 @@ function PropertyChatWorkspace({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                aria-expanded={mobileNavigationOpen}
+                aria-label={
+                  mobileNavigationOpen
+                    ? "Close navigation"
+                    : "Open navigation"
+                }
+                className="grid size-10 place-items-center rounded-xl border border-[var(--line)] bg-white/60 text-[var(--ink)] shadow-sm sm:hidden"
+                onClick={() =>
+                  setMobileNavigationOpen((current) => !current)
+                }
+                type="button"
+              >
+                {mobileNavigationOpen ? (
+                  <X aria-hidden="true" className="size-4" />
+                ) : (
+                  <Menu aria-hidden="true" className="size-4" />
+                )}
+              </button>
               {hasAnalysisResult && (
                 <button
                   className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/60 px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition-colors hover:bg-white"
@@ -770,6 +853,54 @@ function PropertyChatWorkspace({
                 </span>
               </div>
             </div>
+
+            {mobileNavigationOpen && (
+              <nav
+                aria-label="Mobile Lens views"
+                className="absolute inset-x-3 top-[calc(100%-0.25rem)] grid grid-cols-5 gap-1 rounded-2xl border border-white/90 bg-white/92 p-2 shadow-[0_20px_45px_rgb(45_57_84_/_18%)] backdrop-blur-2xl sm:hidden"
+              >
+                <button
+                  aria-label="Data source home"
+                  className="grid min-h-14 place-items-center rounded-xl text-[var(--ink-secondary)]"
+                  onClick={chooseDataSource}
+                  type="button"
+                >
+                  <House aria-hidden="true" className="size-4" />
+                </button>
+                <button
+                  aria-label="Workspace"
+                  className="grid min-h-14 place-items-center rounded-xl text-[var(--ink-secondary)]"
+                  onClick={() => openView("workspace")}
+                  type="button"
+                >
+                  <LayoutDashboard aria-hidden="true" className="size-4" />
+                </button>
+                <button
+                  aria-label="Data overview"
+                  className="grid min-h-14 place-items-center rounded-xl text-[var(--ink-secondary)]"
+                  onClick={() => openView("clickhouse")}
+                  type="button"
+                >
+                  <Database aria-hidden="true" className="size-4" />
+                </button>
+                <button
+                  aria-label="Performance"
+                  className="grid min-h-14 place-items-center rounded-xl text-[var(--ink-secondary)]"
+                  onClick={() => openPerformance("flow")}
+                  type="button"
+                >
+                  <Gauge aria-hidden="true" className="size-4" />
+                </button>
+                <button
+                  aria-label="History"
+                  className="grid min-h-14 place-items-center rounded-xl text-[var(--ink-secondary)]"
+                  onClick={() => openView("history")}
+                  type="button"
+                >
+                  <History aria-hidden="true" className="size-4" />
+                </button>
+              </nav>
+            )}
           </header>
 
           <main className="relative min-h-0 min-w-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-5">
@@ -836,14 +967,66 @@ function PropertyChatWorkspace({
                 <div className="flex h-full min-h-0 flex-col gap-3">
                   {latestUserMessage !== null && (
                     <div className="max-w-4xl shrink-0">
-                      {latestUserMessage.parts.map((part, index) => (
-                        <MessagePart
-                          key={`${latestUserMessage.id}-${index}`}
-                          part={part}
-                          role="user"
-                        />
-                      ))}
+                      {explorationSteps.length > 1 ? (
+                        <div className="flex items-center gap-3 border-l-2 border-[#21c5be] py-0.5 pl-3">
+                          <p className="shrink-0 text-xs font-medium text-[#66758e]">
+                            Current exploration
+                          </p>
+                          <p className="truncate text-sm font-medium leading-5 text-[#09265b]">
+                            {explorationSteps.at(-1)?.label}
+                          </p>
+                        </div>
+                      ) : (
+                        latestUserMessage.parts.map((part, index) => (
+                          <MessagePart
+                            key={`${latestUserMessage.id}-${index}`}
+                            part={part}
+                            role="user"
+                          />
+                        ))
+                      )}
                     </div>
+                  )}
+
+                  {explorationSteps.length > 1 && (
+                    <nav
+                      aria-label="Exploration trail"
+                      className="exploration-trail shrink-0"
+                    >
+                      <Compass
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-[#697cc7]"
+                      />
+                      {explorationSteps.map((step, index) => (
+                        <span
+                          className="flex min-w-0 items-center gap-1.5"
+                          key={`${step.label}:${index}`}
+                        >
+                          {index > 0 && (
+                            <ChevronRight
+                              aria-hidden="true"
+                              className="size-3 shrink-0 text-[var(--ink-tertiary)]"
+                            />
+                          )}
+                          <button
+                            aria-current={
+                              index === explorationSteps.length - 1
+                                ? "step"
+                                : undefined
+                            }
+                            className="exploration-crumb"
+                            disabled={isBusy}
+                            onClick={() =>
+                              revisitExplorationStep(step, index)
+                            }
+                            title={step.label}
+                            type="button"
+                          >
+                            {step.label}
+                          </button>
+                        </span>
+                      ))}
+                    </nav>
                   )}
 
                   <div className="relative min-h-0 flex-1">
@@ -859,9 +1042,9 @@ function PropertyChatWorkspace({
 
                     {!isBusy &&
                       latestToolPart === null &&
-                      latestAssistantTextPart !== null && (
+                      latestAssistantResponsePart !== null && (
                         <MessagePart
-                          part={latestAssistantTextPart}
+                          part={latestAssistantResponsePart}
                           role="assistant"
                         />
                       )}
@@ -956,6 +1139,7 @@ function PropertyChatWorkspace({
           )}
         </div>
       </section>
+      </AnalysisExplorationProvider>
     </AnalysisNavigationProvider>
   );
 }

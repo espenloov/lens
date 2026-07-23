@@ -15,6 +15,10 @@ target/
 data/
 tmp/
 
+# Local demo video project and rendered media
+/apps/demo-video/
+/artifacts/
+
 # Local hackathon reference material
 /handbook.pdf
 /recources.pdf

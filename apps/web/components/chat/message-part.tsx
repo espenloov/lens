@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AnalysisResult } from "@/components/analysis/analysis-result";
 import { AnalysisFailureNotice } from "@/components/analysis/analysis-failure-notice";
 import { SemanticAnalysisResult } from "@/components/analysis/semantic-analysis-result";
+import { parseAnalysisConversationResponse } from "@/lib/analysis/conversation-response";
 import { parseSemanticAnalysisToolOutput } from "@/lib/analysis/semantic-tool-output";
 import { parseAnalysisToolOutput } from "@/lib/analysis/tool-output";
 import type { PropertyAgentUIMessage } from "@/src/trigger/property-agent";
@@ -44,6 +45,49 @@ export function MessagePart({ part, role }: MessagePartProps) {
         {part.text}
       </p>
     );
+  }
+
+  if (part.type === "tool-respondWithoutAnalysis") {
+    switch (part.state) {
+      case "input-streaming":
+      case "input-available":
+      case "approval-requested":
+      case "approval-responded":
+        return <ToolStatus>Checking the dataset boundary…</ToolStatus>;
+
+      case "output-available": {
+        const output = parseAnalysisConversationResponse(part.output);
+
+        if (!output.success) {
+          return (
+            <p className="text-sm text-destructive" role="alert">
+              Lens could not safely interpret that question.
+            </p>
+          );
+        }
+
+        return (
+          <section className="glass-panel max-w-2xl rounded-2xl p-5" role="status">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink-tertiary)]">
+              {output.data.kind === "clarification"
+                ? "One detail needed"
+                : "Outside this dataset"}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[var(--ink-secondary)]">
+              {output.data.message}
+            </p>
+          </section>
+        );
+      }
+
+      case "output-error":
+      case "output-denied":
+        return (
+          <p className="text-sm text-destructive" role="alert">
+            Lens could not check that question against this dataset.
+          </p>
+        );
+    }
   }
 
   if (part.type === "tool-submitSemanticAnalysisPlan") {

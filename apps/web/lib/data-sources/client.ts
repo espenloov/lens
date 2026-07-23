@@ -121,6 +121,24 @@ export function selectRegisteredDataSource(
   );
 }
 
+export function deleteRegisteredDataSource(
+  slug: string,
+  adminToken = "",
+) {
+  return ResultAsync.fromPromise(
+    axios.delete<unknown>("/api/data-sources", {
+      data: { slug },
+      headers: authorizationHeaders(adminToken),
+    }),
+    clientError,
+  ).andThen((response) =>
+    ResultAsync.fromPromise(
+      dataSourceSummarySchema.parseAsync(response.data),
+      clientError,
+    ),
+  );
+}
+
 export function startDataSourceRegistration(
   input: RegisterDataSourceInput,
   adminToken: string,

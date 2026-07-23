@@ -27,7 +27,12 @@ import type {
 
 import { formatCount, formatPrice } from "./formatters";
 import { AnalysisEvidenceLink } from "./analysis-evidence-link";
+import {
+  DeepDiveActions,
+  type AnalysisDeepDiveAction,
+} from "./analysis-exploration";
 import { InsightHeader } from "./insight-header";
+import { LivingDashboard } from "./living-dashboard";
 
 type ExplorationAnalysisProps = {
   readonly plan: AnalysisPlan;
@@ -74,7 +79,7 @@ function DensityRiver({
 
     const draw = () => {
       const width = Math.max(canvas.clientWidth, 320);
-      const height = 198;
+      const height = Math.max(canvas.clientHeight, 198);
       const scale = window.devicePixelRatio || 1;
       canvas.width = Math.round(width * scale);
       canvas.height = Math.round(height * scale);
@@ -349,8 +354,40 @@ function Workspace({
   const endDate = explorationDateAt(request, endDay);
   const primaryCounts = summary.dimensionCounts[0];
   const primaryMaximum = Math.max(...primaryCounts, 1);
+  const activeFilterLabels = dimensions.flatMap((dimension, index) => {
+    const code = filters[index];
+
+    if (dimension.key === null || code === null) {
+      return [];
+    }
+
+    const value = dimension.values.find((candidate) => candidate.code === code);
+
+    return value === undefined ? [] : [`${dimension.label}: ${value.label}`];
+  });
+  const hasLocalFocus =
+    startDay !== 0 ||
+    endDay !== loaded.metadata.dayCount - 1 ||
+    activeFilterLabels.length > 0;
+  const localFocus = [
+    `${formatDate(startDate)} to ${formatDate(endDate)}`,
+    ...activeFilterLabels,
+  ].join(", ");
+  const deepDiveActions: readonly AnalysisDeepDiveAction[] = hasLocalFocus
+    ? [
+        {
+          label: "Explain this slice",
+          prompt: `Continue the current analysis by focusing on this selected slice: ${localFocus}. Explain what distinguishes it from the full result with a useful visual comparison.`,
+        },
+        {
+          label: "Find anomalies here",
+          prompt: `Continue the current analysis by focusing on this selected slice: ${localFocus}. Find unusual changes over time and visualize them.`,
+        },
+      ]
+    : [];
 
   return (
+    <LivingDashboard title={plan.title}>
     <article className="dashboard-revealing space-y-3">
       {inactiveReason !== null && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900" role="status">
@@ -367,7 +404,10 @@ function Workspace({
       </p>
 
       <div className="analysis-bento">
-        <section className="analysis-tile col-span-12 p-5 sm:p-7 lg:col-span-8">
+        <section
+          className="analysis-tile col-span-12 p-5 sm:p-7 lg:col-span-8"
+          data-living-role="focus"
+        >
           <div className="border-b border-[#09265b]/8 pb-4">
             <InsightHeader
               eyebrow="Local analytical workspace"
@@ -394,7 +434,10 @@ function Workspace({
           </div>
         </section>
 
-        <aside className="col-span-12 grid gap-4 lg:col-span-4">
+        <aside
+          className="col-span-12 grid gap-4 lg:col-span-4"
+          data-living-role="context"
+        >
           <section className="analysis-tile p-5 sm:p-6">
             <p className="text-xs font-medium text-[#66758e]">Selected window</p>
             <p className="mt-2 text-lg font-semibold tabular-nums text-[#09265b]">
@@ -432,6 +475,10 @@ function Workspace({
                 ),
               )}
             </div>
+            <DeepDiveActions
+              actions={deepDiveActions}
+              prompt="Drag a time window or select a filter to unlock deeper views."
+            />
           </section>
 
           <section className="grid grid-cols-2 gap-4">
@@ -506,6 +553,7 @@ function Workspace({
       </details>
       </div>
     </article>
+    </LivingDashboard>
   );
 }
 

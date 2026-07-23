@@ -77,7 +77,10 @@ function rowToSource(
     supportsPrewhere: false,
     queryArenaEligible: true,
     manifest: row.semantic_manifest,
-    capabilities: deriveAnalyticalCapabilities(row.semantic_manifest),
+    capabilities: deriveAnalyticalCapabilities(row.semantic_manifest, {
+      dateFrom: row.date_from,
+      dateTo: row.date_to,
+    }),
     builtin: false,
   };
 }
@@ -353,6 +356,74 @@ export function selectDataSource(
   });
 }
 
+export function deleteRegisteredDataSource(
+  slug: string,
+): ResultAsync<DataSourceSummary, DataSourceRegistryError> {
+  if (slug === BUILTIN_DATA_SOURCE.slug) {
+    return errAsync(
+      registryError(new Error("The built-in dataset cannot be deleted")),
+    );
+  }
+
+  const sql = getPostgresClient();
+
+  if (sql === null) {
+    return errAsync(
+      registryError(new Error("PostgreSQL is required to delete a dataset")),
+    );
+  }
+
+  return queryRegisteredSourceVersion(slug).andThen((source) => {
+    if (source === null) {
+      return errAsync(
+        registryError(new Error(`Dataset ${slug} is not registered`)),
+      );
+    }
+
+    return ResultAsync.fromPromise(
+      sql.begin(async (transaction) => {
+        await transaction`
+          SELECT pg_advisory_xact_lock(hashtext(${slug}))
+        `;
+
+        const rows = await transaction<{ id: string }[]>`
+          SELECT id
+          FROM data_sources
+          WHERE slug = ${slug}
+          FOR UPDATE
+        `;
+        const dataSourceId = rows[0]?.id;
+
+        if (dataSourceId === undefined) {
+          throw new Error(`Dataset ${slug} is not registered`);
+        }
+
+        await transaction`
+          DELETE FROM workspace_data_source_selections
+          WHERE data_source_id = ${dataSourceId}
+        `;
+        await transaction`
+          DELETE FROM data_source_performance_profiles
+          WHERE data_source_id = ${dataSourceId}
+        `;
+        await transaction`
+          DELETE FROM active_data_source_versions
+          WHERE data_source_id = ${dataSourceId}
+        `;
+        await transaction`
+          DELETE FROM data_source_versions
+          WHERE data_source_id = ${dataSourceId}
+        `;
+        await transaction`
+          DELETE FROM data_sources
+          WHERE id = ${dataSourceId}
+        `;
+      }),
+      registryError,
+    ).map(() => toDataSourceSummary(source, false));
+  });
+}
+
 export function registerCompatibleDataSource(
   input: RegisterDataSourceInput,
   relation: InspectedRelation,
@@ -470,7 +541,10 @@ export function registerCompatibleDataSource(
         supportsPrewhere: false,
         queryArenaEligible: true,
         manifest: validation.manifest,
-        capabilities: deriveAnalyticalCapabilities(validation.manifest),
+        capabilities: deriveAnalyticalCapabilities(validation.manifest, {
+          dateFrom: validation.dateFrom,
+          dateTo: validation.dateTo,
+        }),
         builtin: false,
       },
       false,

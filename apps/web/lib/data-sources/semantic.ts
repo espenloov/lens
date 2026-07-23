@@ -276,8 +276,32 @@ export type AnalyticalCapabilities = z.infer<
   typeof analyticalCapabilitiesSchema
 >;
 
+type AnalyticalCoverage = {
+  readonly dateFrom: string | null;
+  readonly dateTo: string | null;
+};
+
+function hasFiveYearsOfCoverage(coverage: AnalyticalCoverage): boolean {
+  if (coverage.dateFrom === null || coverage.dateTo === null) {
+    return false;
+  }
+
+  const from = new Date(`${coverage.dateFrom}T00:00:00.000Z`);
+  const to = new Date(`${coverage.dateTo}T00:00:00.000Z`);
+
+  if (Number.isNaN(from.valueOf()) || Number.isNaN(to.valueOf())) {
+    return false;
+  }
+
+  const fiveYearsLater = new Date(from);
+  fiveYearsLater.setUTCFullYear(fiveYearsLater.getUTCFullYear() + 5);
+
+  return to >= fiveYearsLater;
+}
+
 export function deriveAnalyticalCapabilities(
   manifest: AnalyticalTableManifest,
+  coverage?: AnalyticalCoverage,
 ): AnalyticalCapabilities {
   const hasTime = manifest.time !== null;
   const hasMeasure = manifest.measures.length > 0;
@@ -297,7 +321,10 @@ export function deriveAnalyticalCapabilities(
       distribution: distributionMeasures.length > 0,
       composition: hasDimension,
       heatmap: false,
-      anomaly: hasTime && hasMeasure,
+      anomaly:
+        hasTime &&
+        hasMeasure &&
+        (coverage === undefined || hasFiveYearsOfCoverage(coverage)),
       exploration: false,
     },
     measureKeys: manifest.measures.map((measure) => measure.key),
