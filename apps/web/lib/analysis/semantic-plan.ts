@@ -9,6 +9,7 @@ import {
   findAnalyticalDimension,
   findAnalyticalMeasure,
   semanticKeySchema,
+  type AnalyticalCapabilities,
   type AnalyticalTableManifest,
 } from "../data-sources/semantic";
 import { timeIntervalSchema } from "./contracts";
@@ -219,9 +220,8 @@ function validateMetric(
 export function validateSemanticAnalysisPlan(
   plan: SemanticAnalysisPlan,
   manifest: AnalyticalTableManifest,
+  capabilities: AnalyticalCapabilities = deriveAnalyticalCapabilities(manifest),
 ): Result<SemanticAnalysisPlan, SemanticPlanError> {
-  const capabilities = deriveAnalyticalCapabilities(manifest);
-
   if (!capabilities.operations[plan.operation]) {
     return err(
       invalid(`The dataset does not support ${plan.operation} analysis`),
@@ -342,6 +342,7 @@ export function prepareSemanticAnalysis(
   pinned: {
     readonly dataset: string;
     readonly datasetVersion: number;
+    readonly capabilities?: AnalyticalCapabilities;
   },
 ): Result<SemanticAnalysisRequest, SemanticPlanError> {
   if (
@@ -355,7 +356,11 @@ export function prepareSemanticAnalysis(
     );
   }
 
-  return validateSemanticAnalysisPlan(plan, manifest).map((validated) => {
+  return validateSemanticAnalysisPlan(
+    plan,
+    manifest,
+    pinned.capabilities,
+  ).map((validated) => {
     const metric =
       validated.operation === "distribution" ||
       validated.operation === "composition"

@@ -14,6 +14,7 @@ import {
 
 import { BrandMark } from "@/components/brand-mark";
 import { TechnologyMark } from "@/components/technology-mark";
+import { isTerminalTriggerRun } from "@/lib/trigger/run-details";
 
 import type { PerformanceFocus } from "./analysis-navigation";
 import {
@@ -140,10 +141,16 @@ function stageDetails(
 ): readonly { label: string; value: string }[] {
   if (stage === "agent") {
     const run = report.triggerRun;
+    const status =
+      run === null
+        ? "Session correlated"
+        : report.status === "completed" && !isTerminalTriggerRun(run)
+          ? "Answer delivered · session active"
+          : run.status;
 
     return [
       { label: "Run", value: run?.runId ?? report.triggerSessionId },
-      { label: "Status", value: run?.status ?? "Session correlated" },
+      { label: "Status", value: status },
       {
         label: "Attempts",
         value: String(run?.attemptCount ?? 1),

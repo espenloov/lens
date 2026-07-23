@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
         error: result.error.type,
         message: result.error.message,
       },
-      { status: 502 },
+      { status: result.error.status },
     );
   }
 

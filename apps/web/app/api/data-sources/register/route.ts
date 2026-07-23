@@ -44,8 +44,6 @@ export async function POST(request: Request): Promise<Response> {
       "register-data-source",
       input.data,
       {
-        idempotencyKey: `dataset:v4:${digest}`,
-        idempotencyKeyTTL: "1h",
         tags: [`dataset:${input.data.slug}`, `mapping:${digest.slice(0, 20)}`],
         metadata: {
           phase: "queued",

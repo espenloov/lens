@@ -11,12 +11,15 @@ import {
   LoaderCircle,
   Plus,
   ShieldCheck,
+  Trash2,
   Waypoints,
   X,
 } from "lucide-react";
 
+import { DeleteDataSourceDialog } from "@/components/data-sources/delete-data-source-dialog";
 import {
   activateDataSourceSession,
+  deleteRegisteredDataSource,
   discoverDataSourceTables,
   fetchDataSources,
   inspectDataSource,
@@ -25,6 +28,10 @@ import {
   subscribeToDataSourceRegistration,
   type DataSourceClientError,
 } from "@/lib/data-sources/client";
+import {
+  BUILTIN_DATA_SOURCE,
+  toDataSourceSummary,
+} from "@/lib/data-sources/builtin";
 import type {
   DataSourceSummary,
   DataSourceDiscovery,
@@ -159,6 +166,8 @@ export function DataSourceManager({
   const [snapshot, setSnapshot] = useState<RegistrationSnapshot | null>(null);
   const [clientError, setClientError] = useState<DataSourceClientError | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [deletingSource, setDeletingSource] =
+    useState<DataSourceSummary | null>(null);
   const sourcesQuery = useQuery({
     queryKey: ["data-sources"],
     queryFn: async () => await fetchDataSources(),
@@ -250,6 +259,28 @@ export function DataSourceManager({
 
       await queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onDatasetChanged(result.value);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (source: DataSourceSummary) =>
+      await deleteRegisteredDataSource(source.slug, adminToken),
+    onSuccess: async (result, source) => {
+      if (result.isErr()) {
+        setClientError(result.error);
+        return;
+      }
+
+      setDeletingSource(null);
+      setClientError(null);
+      await queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["data-source-discovery"],
+      });
+
+      if (source.selected) {
+        onDatasetChanged(toDataSourceSummary(BUILTIN_DATA_SOURCE, true));
+      }
     },
   });
 
@@ -652,15 +683,30 @@ export function DataSourceManager({
                       {source.database}.{source.table} · v{source.version}
                     </p>
                   </div>
-                  {!source.selected && (
-                    <button
-                      className="shrink-0 rounded-xl border border-[#09265b]/10 bg-white px-3 py-2 text-xs font-semibold text-[#09265b]"
-                      onClick={() => selectMutation.mutate(source.slug)}
-                      type="button"
-                    >
-                      Use source
-                    </button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!source.selected && (
+                      <button
+                        className="rounded-xl border border-[#09265b]/10 bg-white px-3 py-2 text-xs font-semibold text-[#09265b]"
+                        onClick={() => selectMutation.mutate(source.slug)}
+                        type="button"
+                      >
+                        Use source
+                      </button>
+                    )}
+                    {!source.builtin && (
+                      <button
+                        aria-label={`Delete ${source.displayName}`}
+                        className="grid size-9 place-items-center rounded-xl border border-[#09265b]/8 bg-white/70 text-[#8591a5] transition-colors hover:border-[#ff6372]/25 hover:bg-[#ff6372]/8 hover:text-[#b83448]"
+                        onClick={() => {
+                          setClientError(null);
+                          setDeletingSource(source);
+                        }}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" className="size-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
                   <div>
@@ -690,6 +736,24 @@ export function DataSourceManager({
           </div>
         </section>
       </div>
+      {deletingSource !== null && (
+        <DeleteDataSourceDialog
+          error={
+            deleteMutation.isError
+              ? "The data source could not be deleted"
+              : clientError?.message ?? null
+          }
+          onCancel={() => {
+            if (!deleteMutation.isPending) {
+              setDeletingSource(null);
+              setClientError(null);
+            }
+          }}
+          onConfirm={() => deleteMutation.mutate(deletingSource)}
+          pending={deleteMutation.isPending}
+          source={deletingSource}
+        />
+      )}
     </div>
   );
 }

@@ -39,8 +39,8 @@ export default async function Home({ searchParams }: HomeProps) {
 
   if (!dataset.success || version === null) {
     return (
-      <main className="lens-canvas h-screen overflow-hidden p-3 sm:p-5 lg:p-7">
-        <div className="lens-workspace relative mx-auto h-full max-w-[1480px] overflow-hidden">
+      <main className="lens-canvas min-h-screen p-3 sm:h-screen sm:min-h-0 sm:overflow-hidden sm:p-5 lg:p-7">
+        <div className="lens-workspace relative mx-auto min-h-[calc(100dvh-1.5rem)] max-w-[1480px] overflow-visible sm:h-full sm:min-h-0 sm:overflow-hidden">
           <DataSourceSelection />
         </div>
       </main>
@@ -67,8 +67,8 @@ export default async function Home({ searchParams }: HomeProps) {
       : null;
   if (requestedSource?.isOk() !== true) {
     return (
-      <main className="lens-canvas h-screen overflow-hidden p-3 sm:p-5 lg:p-7">
-        <div className="lens-workspace relative mx-auto h-full max-w-[1480px] overflow-hidden">
+      <main className="lens-canvas min-h-screen p-3 sm:h-screen sm:min-h-0 sm:overflow-hidden sm:p-5 lg:p-7">
+        <div className="lens-workspace relative mx-auto min-h-[calc(100dvh-1.5rem)] max-w-[1480px] overflow-visible sm:h-full sm:min-h-0 sm:overflow-hidden">
           <DataSourceSelection />
         </div>
       </main>
@@ -76,8 +76,8 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   return (
-    <main className="lens-canvas h-screen overflow-hidden p-3 sm:p-5 lg:p-7">
-      <div className="lens-workspace relative mx-auto h-full max-w-[1480px] overflow-hidden">
+    <main className="lens-canvas min-h-screen p-3 sm:h-screen sm:min-h-0 sm:overflow-hidden sm:p-5 lg:p-7">
+      <div className="lens-workspace relative mx-auto min-h-[calc(100dvh-1.5rem)] max-w-[1480px] overflow-visible sm:h-full sm:min-h-0 sm:overflow-hidden">
         <PropertyChat
           chatId={chatId}
           initialDataSource={toDataSourceSummary(requestedSource.value, true)}

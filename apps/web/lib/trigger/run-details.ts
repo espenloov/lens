@@ -19,3 +19,22 @@ export type TriggerRunDetails = {
   readonly attemptCount: number;
   readonly attempts: readonly TriggerRunAttempt[];
 };
+
+const TERMINAL_TRIGGER_STATUSES = new Set([
+  "CANCELED",
+  "COMPLETED",
+  "CRASHED",
+  "FAILED",
+  "SYSTEM_FAILURE",
+  "TIMED_OUT",
+]);
+
+export function isTerminalTriggerRun(
+  run: TriggerRunDetails | null,
+): boolean {
+  return (
+    run !== null &&
+    (run.finishedAt !== null ||
+      TERMINAL_TRIGGER_STATUSES.has(run.status.toUpperCase()))
+  );
+}

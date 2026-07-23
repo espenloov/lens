@@ -37,9 +37,13 @@ export type SemanticArrowQueryError = {
   readonly type: "semantic_arrow_query_error";
   readonly message: string;
   readonly cause: unknown;
+  readonly status: 404 | 502;
 };
 
-function queryError(cause: unknown): SemanticArrowQueryError {
+function queryError(
+  cause: unknown,
+  status: SemanticArrowQueryError["status"] = 502,
+): SemanticArrowQueryError {
   return {
     type: "semantic_arrow_query_error",
     message:
@@ -47,6 +51,7 @@ function queryError(cause: unknown): SemanticArrowQueryError {
         ? cause.message
         : "ClickHouse could not produce the semantic Arrow stream",
     cause,
+    status,
   };
 }
 
@@ -58,7 +63,7 @@ export function querySemanticAnalysisAsArrow(
     request.plan.dataset,
     request.plan.datasetVersion,
   )
-    .mapErr(queryError)
+    .mapErr((cause) => queryError(cause, 404))
     .andThen((source) => {
       const prepared = prepareSemanticAnalysis(
         request.plan,
@@ -66,6 +71,7 @@ export function querySemanticAnalysisAsArrow(
         {
           dataset: source.slug,
           datasetVersion: source.version,
+          capabilities: source.capabilities,
         },
       );
 

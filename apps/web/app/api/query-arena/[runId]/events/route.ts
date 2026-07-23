@@ -7,6 +7,7 @@ import {
   queryArenaResultSchema,
   queryArenaSnapshotSchema,
 } from "@/lib/query-arena/contracts";
+import { authorizeDataSourceRead } from "@/lib/data-sources/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,12 @@ export async function GET(
   request: Request,
   context: RouteContext,
 ): Promise<Response> {
+  const access = authorizeDataSourceRead(request);
+
+  if (access.isErr()) {
+    return Response.json(access.error, { status: access.error.status });
+  }
+
   const { runId: rawRunId } = await context.params;
   const runId = runIdSchema.safeParse(rawRunId);
 

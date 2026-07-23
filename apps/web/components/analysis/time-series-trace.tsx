@@ -11,6 +11,10 @@ import {
 import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 import type { TimeSeriesLoadResult } from "@/lib/time-series/load";
 import { supportsQueryArena } from "@/lib/query-arena/signature";
+import {
+  DeepDiveActions,
+  type AnalysisDeepDiveAction,
+} from "./analysis-exploration";
 
 import {
   formatCompactCount,
@@ -20,6 +24,7 @@ import {
 } from "./formatters";
 import { AnalysisEvidenceLink } from "./analysis-evidence-link";
 import { InsightHeader } from "./insight-header";
+import { LivingDashboard } from "./living-dashboard";
 
 type TimeSeriesTraceProps = {
   readonly title: string;
@@ -169,9 +174,14 @@ export function TimeSeriesTrace({
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(
     Math.max(0, periods.length - 1),
   );
+  const [selectedSeriesIndex, setSelectedSeriesIndex] = useState<number | null>(
+    null,
+  );
   const { containerRef, width } = useContainerWidth();
   const titleId = useId();
   const descriptionId = useId();
+  const ribbonGradientId = useId();
+  const focusGlowId = useId();
   const displayValues =
     derived !== null && derived.kind !== "anomaly_score"
       ? derived.values
@@ -250,6 +260,27 @@ export function TimeSeriesTrace({
   const paddedRange = paddedMaximum - paddedMinimum;
   const yForValue = (value: number) =>
     margin.top + ((paddedMaximum - value) / paddedRange) * plotHeight;
+  const pathForRows = (rows: readonly number[], values: ArrayLike<number>) =>
+    rows
+      .map((row, index) => {
+        const command = index === 0 ? "M" : "L";
+        return `${command}${xForPeriod(columns.periodStarts[row]).toFixed(2)},${yForValue(values[row]).toFixed(2)}`;
+      })
+      .join(" ");
+  const firstSeriesRows = rowsBySeries[0] ?? [];
+  const secondSeriesRows = rowsBySeries[1] ?? [];
+  const ribbonPath =
+    firstSeriesRows.length > 1 && secondSeriesRows.length > 1
+      ? `${pathForRows(firstSeriesRows, displayValues)} ${[...secondSeriesRows]
+          .reverse()
+          .map(
+            (row) =>
+              `L${xForPeriod(columns.periodStarts[row]).toFixed(2)},${yForValue(displayValues[row]).toFixed(2)}`,
+          )
+          .join(" ")} Z`
+      : firstSeriesRows.length > 1
+        ? `${pathForRows(firstSeriesRows, displayValues)} L${xForPeriod(columns.periodStarts[firstSeriesRows.at(-1)!]).toFixed(2)},${(height - margin.bottom).toFixed(2)} L${xForPeriod(columns.periodStarts[firstSeriesRows[0]]).toFixed(2)},${(height - margin.bottom).toFixed(2)} Z`
+        : null;
   const yTicks = Array.from({ length: Y_TICK_COUNT }, (_, index) => {
     const ratio = index / (Y_TICK_COUNT - 1);
     return paddedMaximum - ratio * paddedRange;
@@ -305,6 +336,33 @@ export function TimeSeriesTrace({
       percentage,
     };
   })();
+  const selectedSeriesName =
+    selectedSeriesIndex === null
+      ? null
+      : columns.seriesNames[selectedSeriesIndex] ?? null;
+  const selectedPeriodLabel = formatPeriod(selectedPeriod, request.interval);
+  const deepDiveActions: readonly AnalysisDeepDiveAction[] =
+    selectedSeriesName === null
+      ? [
+          {
+            label: `Open ${selectedPeriodLabel}`,
+            prompt: `Continue the current analysis by zooming into ${selectedPeriodLabel}. Use a finer time interval and preserve the same measure and filters.`,
+          },
+          {
+            label: `Break down ${selectedPeriodLabel}`,
+            prompt: `Continue the current analysis by focusing on ${selectedPeriodLabel}. Break it down by the most informative available category.`,
+          },
+        ]
+      : [
+          {
+            label: `Enter ${selectedSeriesName}`,
+            prompt: `Continue the current analysis by focusing on "${selectedSeriesName}" in ${selectedPeriodLabel}. Break it down by the most informative available category.`,
+          },
+          {
+            label: `Trace ${selectedSeriesName}`,
+            prompt: `Continue the current analysis by focusing on "${selectedSeriesName}". Show the same measure with a finer time interval around ${selectedPeriodLabel}.`,
+          },
+        ];
   const primaryRows = rowsBySeries[0] ?? [];
   const firstRow = primaryRows[0];
   const lastRow = primaryRows.at(-1);
@@ -322,12 +380,14 @@ export function TimeSeriesTrace({
   )[0];
 
   return (
+    <LivingDashboard title={title}>
     <article className="space-y-3">
       <div className="analysis-bento">
       <figure
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className="analysis-tile col-span-12 p-4 lg:col-span-8"
+        data-living-role="focus"
       >
         <div className="border-b border-[var(--line)] pb-3">
           <InsightHeader
@@ -378,6 +438,32 @@ export function TimeSeriesTrace({
               Use the time control after the chart to inspect exact values for
               every series.
             </desc>
+            <defs>
+              <linearGradient
+                id={ribbonGradientId}
+                x1="0"
+                x2="1"
+                y1="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor="#697cc7" stopOpacity="0.2" />
+                <stop offset="52%" stopColor="#8f9edb" stopOpacity="0.11" />
+                <stop offset="100%" stopColor="#21c5be" stopOpacity="0.2" />
+              </linearGradient>
+              <filter
+                height="180%"
+                id={focusGlowId}
+                width="180%"
+                x="-40%"
+                y="-40%"
+              >
+                <feGaussianBlur result="blur" stdDeviation="4" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
 
             {yTicks.map((tick) => {
               const y = yForValue(tick);
@@ -404,9 +490,19 @@ export function TimeSeriesTrace({
               );
             })}
 
+            {ribbonPath !== null && (
+              <path
+                className="living-signal-ribbon"
+                d={ribbonPath}
+                fill={`url(#${ribbonGradientId})`}
+              />
+            )}
+
             <line
-              stroke="var(--muted-foreground)"
+              className="living-selection-line"
+              stroke="#697cc7"
               strokeDasharray="3 4"
+              strokeWidth="1.5"
               x1={xForPeriod(selectedPeriod)}
               x2={xForPeriod(selectedPeriod)}
               y1={margin.top}
@@ -414,18 +510,33 @@ export function TimeSeriesTrace({
             />
 
             {rowsBySeries.map((rows, seriesIndex) => {
-              const path = rows
-                .map((row, index) => {
-                  const command = index === 0 ? "M" : "L";
-                  return `${command}${xForPeriod(columns.periodStarts[row]).toFixed(2)},${yForValue(displayValues[row]).toFixed(2)}`;
-                })
-                .join(" ");
+              const path = pathForRows(rows, displayValues);
+              const expectedPath =
+                derived?.kind === "anomaly_score"
+                  ? pathForRows(
+                      rows.filter((row) => derived.validity[row] === 1),
+                      derived.expected,
+                    )
+                  : null;
 
               return (
                 <g key={columns.seriesNames[seriesIndex]}>
+                  {expectedPath !== null && expectedPath !== "" && (
+                    <path
+                      d={expectedPath}
+                      fill="none"
+                      opacity="0.5"
+                      stroke={SERIES_COLORS[seriesIndex % SERIES_COLORS.length]}
+                      strokeDasharray="4 5"
+                      strokeWidth="1.5"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
                   <path
+                    className="living-trace-line"
                     d={path}
                     fill="none"
+                    pathLength="1"
                     stroke={SERIES_COLORS[seriesIndex % SERIES_COLORS.length]}
                     strokeLinejoin="round"
                     strokeWidth="2.5"
@@ -433,27 +544,47 @@ export function TimeSeriesTrace({
                   />
                   {rows.map((row) => (
                     <circle
+                      className="living-signal-point"
                       cx={xForPeriod(columns.periodStarts[row])}
                       cy={yForValue(displayValues[row])}
-                      fill={SERIES_COLORS[seriesIndex % SERIES_COLORS.length]}
+                      fill={
+                        columns.periodStarts[row] === selectedPeriod
+                          ? SERIES_COLORS[seriesIndex % SERIES_COLORS.length]
+                          : "white"
+                      }
+                      filter={
+                        columns.periodStarts[row] === selectedPeriod
+                          ? `url(#${focusGlowId})`
+                          : undefined
+                      }
                       key={columns.periodStarts[row]}
-                      onPointerEnter={() =>
+                      onClick={() => {
                         setSelectedPeriodIndex(
                           periodIndexes.get(columns.periodStarts[row]) ?? 0,
-                        )
+                        );
+                        setSelectedSeriesIndex(seriesIndex);
+                      }}
+                      onPointerEnter={() => {
+                        setSelectedPeriodIndex(
+                          periodIndexes.get(columns.periodStarts[row]) ?? 0,
+                        );
+                        setSelectedSeriesIndex(seriesIndex);
+                      }}
+                      opacity={
+                        columns.periodStarts[row] === selectedPeriod ? 1 : 0.62
                       }
-                      r={columns.periodStarts[row] === selectedPeriod ? 4 : 2}
+                      r={columns.periodStarts[row] === selectedPeriod ? 4.5 : 2.5}
                       stroke={
                         derived?.kind === "anomaly_score" &&
                         derived.flags[row] === 1
                           ? "var(--destructive)"
-                          : "none"
+                          : SERIES_COLORS[seriesIndex % SERIES_COLORS.length]
                       }
                       strokeWidth={
                         derived?.kind === "anomaly_score" &&
                         derived.flags[row] === 1
-                          ? 4
-                          : 0
+                          ? 3
+                          : 1.5
                       }
                     />
                   ))}
@@ -484,7 +615,10 @@ export function TimeSeriesTrace({
           id={`${titleId}-period`}
           max={periods.length - 1}
           min="0"
-          onChange={(event) => setSelectedPeriodIndex(Number(event.target.value))}
+          onChange={(event) => {
+            setSelectedPeriodIndex(Number(event.target.value));
+            setSelectedSeriesIndex(null);
+          }}
           step="1"
           type="range"
           value={selectedPeriodIndex}
@@ -528,9 +662,16 @@ export function TimeSeriesTrace({
             </span>
           )}
         </output>
+        <DeepDiveActions
+          actions={deepDiveActions}
+          prompt="Select a point to enter a place or series."
+        />
       </figure>
 
-      <aside className="col-span-12 grid gap-4 lg:col-span-4">
+      <aside
+        className="col-span-12 grid gap-4 lg:col-span-4"
+        data-living-role="context"
+      >
         <section className="analysis-tile p-4">
           <p className="text-xs font-medium text-[var(--ink-tertiary)]">Key finding</p>
           <p className="mt-2 text-xl font-semibold leading-6 tracking-[-0.025em] text-[var(--ink)]">
@@ -653,5 +794,6 @@ export function TimeSeriesTrace({
       </details>
       </div>
     </article>
+    </LivingDashboard>
   );
 }

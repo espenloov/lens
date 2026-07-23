@@ -10,6 +10,7 @@ import {
   analyticalTableManifestSchema,
   type AnalyticalTableManifest,
 } from "./semantic";
+import { normalizeGeneratedDimension } from "./manifest-normalization";
 
 const strictFormatSchema = z.object({
   kind: z.enum(["number", "currency", "percent", "duration"]),
@@ -95,7 +96,9 @@ function generationError(cause: unknown): ManifestGenerationError {
   return {
     type: "manifest_generation_error",
     message:
-      cause instanceof Error
+      cause instanceof z.ZodError
+        ? cause.issues[0]?.message ?? "The analytical manifest is invalid"
+        : cause instanceof Error
         ? cause.message
         : "The analytical manifest could not be generated",
     cause,
@@ -159,12 +162,7 @@ Use null for absent optional roles. Do not invent columns, joins, formulas, or c
                       measure.format.maximumFractionDigits,
                   },
         })),
-        dimensions: result.object.dimensions.map((dimension) => ({
-          ...dimension,
-          values: dimension.values.map(({ code, ...value }) =>
-            code === null ? value : { ...value, code },
-          ),
-        })),
+        dimensions: result.object.dimensions.map(normalizeGeneratedDimension),
       });
     })(),
     generationError,

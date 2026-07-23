@@ -8,6 +8,10 @@ import { deriveAnalyticalCapabilities } from "./semantic";
 
 const BUILTIN_CAPABILITIES = deriveAnalyticalCapabilities(
   PROPERTY_TRANSACTION_MANIFEST,
+  {
+    dateFrom: "1995-01-01",
+    dateTo: "2024-01-31",
+  },
 );
 
 export const BUILTIN_DATA_SOURCE: AnalysisDataSource = {

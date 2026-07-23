@@ -143,6 +143,20 @@ describe("analytical_table/v1 semantic adapter", () => {
     expect(capabilities.operations.distribution).toBe(true);
   });
 
+  it("only enables anomaly detection when the source has enough history", () => {
+    const shortCoverage = deriveAnalyticalCapabilities(TAXI_MANIFEST, {
+      dateFrom: "2015-07-01",
+      dateTo: "2015-09-30",
+    });
+    const longCoverage = deriveAnalyticalCapabilities(TAXI_MANIFEST, {
+      dateFrom: "2015-01-01",
+      dateTo: "2021-01-01",
+    });
+
+    expect(shortCoverage.operations.anomaly).toBe(false);
+    expect(longCoverage.operations.anomaly).toBe(true);
+  });
+
   it("fails closed for malformed semantic keys and contradictory roles", () => {
     const injectedKey = structuredClone(TAXI_MANIFEST);
     injectedKey.measures[0]!.key = "fare); DROP TABLE trips; --";

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -13,7 +14,10 @@ import { ResultAsync } from "neverthrow";
 
 import { getPropertyChatRunDetails } from "@/app/actions/chat";
 import type { QueryStrategy } from "@/lib/query-arena/contracts";
-import type { TriggerRunDetails } from "@/lib/trigger/run-details";
+import {
+  isTerminalTriggerRun,
+  type TriggerRunDetails,
+} from "@/lib/trigger/run-details";
 
 export type AnalysisFailureStage =
   | "agent"
@@ -125,36 +129,39 @@ export function AnalysisPerformanceProvider({
   );
 
   const attachTriggerRun = useCallback(
-    (reportId: string) => {
-      void ResultAsync.fromPromise(
+    async (reportId: string): Promise<TriggerRunDetails | null> => {
+      const result = await ResultAsync.fromPromise(
         getPropertyChatRunDetails(triggerSessionId),
         (cause) => cause,
-      ).map((triggerRun) => {
-        if (triggerRun === null) {
-          return;
-        }
+      );
 
-        const triggerError =
-          [...triggerRun.attempts]
-            .reverse()
-            .find((attempt) => attempt.errorMessage !== null)?.errorMessage ??
-          null;
+      if (result.isErr() || result.value === null) {
+        return null;
+      }
 
-        setReports((current) =>
-          current.map((report) =>
-            report.id === reportId
-              ? {
-                  ...report,
-                  triggerRun,
-                  errorMessage:
-                    report.failedStage === "agent" && triggerError !== null
-                      ? triggerError
-                      : report.errorMessage,
-                }
-              : report,
-          ),
-        );
-      });
+      const triggerRun = result.value;
+      const triggerError =
+        [...triggerRun.attempts]
+          .reverse()
+          .find((attempt) => attempt.errorMessage !== null)?.errorMessage ??
+        null;
+
+      setReports((current) =>
+        current.map((report) =>
+          report.id === reportId
+            ? {
+                ...report,
+                triggerRun,
+                errorMessage:
+                  report.failedStage === "agent" && triggerError !== null
+                    ? triggerError
+                    : report.errorMessage,
+              }
+            : report,
+        ),
+      );
+
+      return triggerRun;
     },
     [triggerSessionId],
   );
@@ -215,9 +222,8 @@ export function AnalysisPerformanceProvider({
         );
         return [report, ...withoutDuplicate].slice(0, 8);
       });
-      attachTriggerRun(report.id);
     },
-    [attachTriggerRun, triggerSessionId],
+    [triggerSessionId],
   );
 
   const failAnalysis = useCallback(
@@ -250,9 +256,8 @@ export function AnalysisPerformanceProvider({
 
       pending.current = null;
       setReports((current) => [report, ...current].slice(0, 8));
-      attachTriggerRun(report.id);
     },
-    [attachTriggerRun, triggerSessionId],
+    [triggerSessionId],
   );
 
   const updateQueryArena = useCallback(
@@ -270,11 +275,45 @@ export function AnalysisPerformanceProvider({
   );
 
   const latestReportId = reports[0]?.id;
+
+  useEffect(() => {
+    if (latestReportId === undefined) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeout: number | null = null;
+
+    const poll = async (attempt: number) => {
+      const run = await attachTriggerRun(latestReportId);
+
+      if (
+        !cancelled &&
+        attempt < 20 &&
+        !isTerminalTriggerRun(run)
+      ) {
+        timeout = window.setTimeout(
+          () => void poll(attempt + 1),
+          1_000,
+        );
+      }
+    };
+
+    void poll(1);
+
+    return () => {
+      cancelled = true;
+      if (timeout !== null) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [attachTriggerRun, latestReportId]);
+
   const refreshLatestTriggerRun = useCallback(() => {
     const reportId = latestReportId;
 
     if (reportId !== undefined) {
-      attachTriggerRun(reportId);
+      void attachTriggerRun(reportId);
     }
   }, [attachTriggerRun, latestReportId]);
 

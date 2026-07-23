@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useAnalysisPerformance } from "@/components/analysis/performance-context";
+import {
+  DeepDiveActions,
+  type AnalysisDeepDiveAction,
+} from "@/components/analysis/analysis-exploration";
 import { DashboardAssembly } from "@/components/dashboard-assembly";
 import type { AnalysisPlan } from "@/lib/analysis/contracts";
 import type {
@@ -29,6 +33,7 @@ import {
 } from "./formatters";
 import { AnalysisEvidenceLink } from "./analysis-evidence-link";
 import { InsightHeader } from "./insight-header";
+import { LivingDashboard } from "./living-dashboard";
 
 type GrammarAnalysisProps = {
   readonly plan: AnalysisPlan;
@@ -55,92 +60,232 @@ function formatValue(
 
 function CategoryView({
   frame,
+  onSelect,
   request,
+  selectedRow,
 }: {
   readonly frame: CategoryFrame;
+  readonly onSelect: (row: number) => void;
   readonly request: CategoricalRequest;
+  readonly selectedRow: number | null;
 }) {
-  const maximum = Math.max(...frame.values, 1);
+  const maximum = Math.max(...frame.values.map((value) => Math.abs(value)), 1);
 
   return (
-    <div>
-      <div className="space-y-3">
-        {frame.categories.map((category, index) => (
-          <div className="grid grid-cols-[minmax(7rem,0.7fr)_2fr_auto] items-center gap-3" key={category}>
-            <span className="truncate text-sm font-medium text-slate-700">{category}</span>
-            <div className="h-8 overflow-hidden rounded-full bg-white/45 shadow-inner shadow-slate-300/20">
-              <div
-                className="h-full rounded-full bg-[#1769df] transition-[width] duration-500 motion-reduce:transition-none"
-                style={{ width: `${(frame.values[index] / maximum) * 100}%` }}
+    <div className="semantic-category-field">
+      {frame.categories.slice(0, 8).map((category, index) => {
+        const ratio = Math.abs(frame.values[index]) / maximum;
+
+        return (
+          <button
+            aria-pressed={selectedRow === index}
+            className="semantic-category-item"
+            key={category}
+            onClick={() => onSelect(index)}
+            style={{
+              opacity:
+                selectedRow === null || selectedRow === index ? 1 : 0.34,
+            }}
+            type="button"
+          >
+            <span className="semantic-category-label">{category}</span>
+            <span aria-hidden="true" className="semantic-category-track">
+              <span
+                className="semantic-category-fill"
+                style={{
+                  background: SERIES_COLORS[index % SERIES_COLORS.length],
+                  width: `${ratio * 100}%`,
+                }}
               />
-            </div>
-            <span className="min-w-20 text-right font-mono text-sm tabular-nums text-slate-700">
+              <span
+                className="semantic-category-orb"
+                style={{
+                  background: SERIES_COLORS[index % SERIES_COLORS.length],
+                  left: `${ratio * 100}%`,
+                }}
+              />
+            </span>
+            <span className="semantic-category-value">
               {formatValue(frame.values[index], request)}
             </span>
-          </div>
-        ))}
-      </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+const SERIES_COLORS = ["#697cc7", "#21c5be", "#ef9ca5", "#e3a53b", "#885cf6"];
+
 function HistogramView({
   frame,
+  onSelect,
   request,
+  selectedRow,
 }: {
   readonly frame: HistogramFrame;
+  readonly onSelect: (row: number) => void;
   readonly request: HistogramRequest;
+  readonly selectedRow: number | null;
 }) {
-  const maximum = Math.max(...frame.values, 1);
+  const gradientId = useId();
+  const glowId = useId();
+  const maximum = Math.max(...frame.values.map((value) => Math.abs(value)), 1);
   const overflowStart =
     (request.filters.minimumPrice ?? 0) +
     (request.maximumBins - 1) * request.bucketWidth;
+  const width = 760;
+  const height = 250;
+  const padding = 12;
+  const uniqueBins = [...new Set(frame.binStarts)].sort(
+    (left, right) => left - right,
+  );
+  const x = (binStart: number) => {
+    const index = uniqueBins.indexOf(binStart);
+
+    return uniqueBins.length <= 1
+      ? width / 2
+      : padding +
+          (index / (uniqueBins.length - 1)) * (width - padding * 2);
+  };
+  const y = (value: number) =>
+    height -
+    padding -
+    (Math.abs(value) / maximum) * (height - padding * 2);
+  const seriesIndexes = [...new Set(frame.seriesIndexes)];
+  const paths = seriesIndexes.map((seriesIndex) => {
+    const rows = Array.from(
+      { length: frame.values.length },
+      (_, row) => row,
+    )
+      .filter((row) => frame.seriesIndexes[row] === seriesIndex)
+      .sort((left, right) => frame.binStarts[left] - frame.binStarts[right]);
+    const line = rows
+      .map(
+        (row, index) =>
+          `${index === 0 ? "M" : "L"} ${x(frame.binStarts[row])} ${y(frame.values[row])}`,
+      )
+      .join(" ");
+    const area =
+      rows.length === 0
+        ? ""
+        : `${line} L ${x(frame.binStarts[rows.at(-1)!])} ${height - padding} L ${x(frame.binStarts[rows[0]])} ${height - padding} Z`;
+
+    return { area, line, rows, seriesIndex };
+  });
+  const selected =
+    selectedRow === null
+      ? null
+      : {
+          x: x(frame.binStarts[selectedRow]),
+          y: y(frame.values[selectedRow]),
+        };
 
   return (
-    <div className="min-w-0">
-        <div className="flex h-52 items-end gap-px border-b border-[#09265b]/10" aria-label="Price distribution histogram" role="img">
-          {Array.from({ length: frame.values.length }, (_, row) => {
-            const series = frame.seriesNames[frame.seriesIndexes[row]];
-            const overflow = frame.binStarts[row] === overflowStart;
-            const label = overflow
-              ? `${formatPrice(frame.binStarts[row])}+`
-              : `${formatPrice(frame.binStarts[row])}–${formatPrice(frame.binEnds[row])}`;
-
-            return (
-              <div
-                className="min-w-0 flex-1 bg-[#1769df]"
-                key={`${label}-${series}`}
-                style={{ height: `${(frame.values[row] / maximum) * 100}%` }}
-                title={`${label}${frame.seriesNames.length > 1 ? ` · ${series}` : ""}: ${formatValue(frame.values[row], request)}`}
-              />
-            );
-          })}
-        </div>
-        <div className="mt-3 flex justify-between text-xs text-[#66758e]">
-          <span>{formatPrice(frame.binStarts[0])}</span>
-          <span>{formatPrice(frame.binStarts.at(-1) ?? 0)}+</span>
-        </div>
-        <details className="mt-3 text-sm text-[#596983]">
-          <summary className="cursor-pointer font-medium text-[#1769df]">View price bands</summary>
-          <div className="mt-3 max-h-56 overflow-auto">
-            {Array.from({ length: frame.values.length }, (_, row) => (
-              <div className="flex justify-between border-b border-[#09265b]/8 py-2 text-xs" key={row}>
-                <span>{formatPrice(frame.binStarts[row])}{frame.binStarts[row] === overflowStart ? "+" : ""}</span>
-                <span className="tabular-nums">{formatValue(frame.values[row], request)}</span>
-              </div>
+    <div className="semantic-density-field min-w-0">
+      <svg
+        aria-label="Interactive price distribution landscape"
+        className="h-52 w-full overflow-visible"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#697cc7" stopOpacity="0.38" />
+            <stop offset="100%" stopColor="#21c5be" stopOpacity="0.03" />
+          </linearGradient>
+          <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur result="blur" stdDeviation="5" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        {paths.map(({ area, line, rows, seriesIndex }, seriesPosition) => (
+          <g key={seriesIndex}>
+            {seriesPosition === 0 && (
+              <path d={area} fill={`url(#${gradientId})`} />
+            )}
+            <path
+              className="living-trace-line"
+              d={line}
+              fill="none"
+              pathLength="1"
+              stroke={SERIES_COLORS[seriesPosition % SERIES_COLORS.length]}
+              strokeLinejoin="round"
+              strokeWidth="3"
+            />
+            {rows.map((row) => (
+              <circle
+                className="cursor-crosshair"
+                cx={x(frame.binStarts[row])}
+                cy={y(frame.values[row])}
+                fill="transparent"
+                key={row}
+                onClick={() => onSelect(row)}
+                onPointerEnter={() => onSelect(row)}
+                r="10"
+              >
+                <title>
+                  {frame.binStarts[row] === overflowStart
+                    ? `${formatPrice(frame.binStarts[row])}+`
+                    : `${formatPrice(frame.binStarts[row])}–${formatPrice(frame.binEnds[row])}`}
+                  : {formatValue(frame.values[row], request)}
+                </title>
+              </circle>
             ))}
-          </div>
-        </details>
+          </g>
+        ))}
+        {selected !== null && (
+          <g className="living-density-focus">
+            <line
+              stroke="#21c5be"
+              strokeDasharray="4 5"
+              x1={selected.x}
+              x2={selected.x}
+              y1={padding}
+              y2={height - padding}
+            />
+            <circle
+              cx={selected.x}
+              cy={selected.y}
+              fill="#21c5be"
+              filter={`url(#${glowId})`}
+              r="6"
+              stroke="white"
+              strokeWidth="3"
+            />
+          </g>
+        )}
+      </svg>
+      <div className="mt-2 grid grid-cols-[auto_minmax(6rem,1fr)_auto] items-center gap-3 text-xs text-[#66758e]">
+        <span>{formatPrice(frame.binStarts[0])}</span>
+        <input
+          aria-label="Inspect a price band"
+          className="w-full accent-[#697cc7]"
+          max={Math.max(0, frame.values.length - 1)}
+          min="0"
+          onChange={(event) => onSelect(Number(event.target.value))}
+          type="range"
+          value={selectedRow ?? 0}
+        />
+        <span>{formatPrice(frame.binStarts.at(-1) ?? 0)}+</span>
+      </div>
     </div>
   );
 }
 
 function MatrixView({
   frame,
+  onSelect,
   request,
+  selectedRow,
 }: {
   readonly frame: MatrixFrame;
+  readonly onSelect: (row: number) => void;
   readonly request: MatrixRequest;
+  readonly selectedRow: number | null;
 }) {
   const cells = useMemo(
     () =>
@@ -175,15 +320,37 @@ function MatrixView({
             const value = row === undefined ? 0 : frame.values[row];
             const intensity = Math.max(0.06, value / maximum);
 
+            const diameter = Math.max(
+              0.55,
+              Math.sqrt(Math.max(0, value / maximum)) * 2.35,
+            );
+
             return (
-              <div
-                className="grid aspect-square min-h-12 place-items-center rounded-xl border border-white/65 text-[11px] tabular-nums shadow-sm"
+              <button
+                aria-label={`${xLabel}, ${yLabel}: ${formatValue(value, request)}`}
+                aria-pressed={selectedRow === row}
+                className="grammar-signal-cell"
                 key={`${xLabel}-${yLabel}`}
-                style={{ backgroundColor: `color-mix(in oklab, var(--trigger) ${intensity * 78}%, rgba(255,255,255,.48))`, color: intensity > 0.58 ? "white" : "var(--foreground)" }}
+                onClick={() => row !== undefined && onSelect(row)}
+                onPointerEnter={() => row !== undefined && onSelect(row)}
                 title={`${xLabel}, ${yLabel}: ${formatValue(value, request)}`}
+                type="button"
               >
-                {row === undefined ? "—" : formatValue(value, request, true)}
-              </div>
+                {row === undefined ? (
+                  <span className="text-[10px] text-[var(--ink-tertiary)]">
+                    —
+                  </span>
+                ) : (
+                  <span
+                    className="grammar-signal-orb"
+                    style={{
+                      backgroundColor: `color-mix(in oklab, var(--trigger) ${intensity * 75}%, var(--lens-blue))`,
+                      height: `${diameter}rem`,
+                      width: `${diameter}rem`,
+                    }}
+                  />
+                )}
+              </button>
             );
           }),
         ])}
@@ -231,13 +398,14 @@ type GrammarDashboardHighlight = {
 function grammarDashboardHighlight(
   frame: CategoryFrame | HistogramFrame | MatrixFrame,
   request: GrammarAnalysisRequest,
+  selectedRow: number | null,
 ): GrammarDashboardHighlight {
   const orderedRows = Array.from(
     { length: frame.values.length },
     (_, index) => index,
   ).sort((left, right) => frame.values[right] - frame.values[left]);
-  const strongestRow = orderedRows[0] ?? 0;
-  const secondRow = orderedRows[1];
+  const strongestRow = selectedRow ?? orderedRows[0] ?? 0;
+  const secondRow = orderedRows.find((row) => row !== strongestRow);
   const strongestValue = frame.values[strongestRow] ?? 0;
   const total = frame.values.reduce((sum, value) => sum + value, 0);
 
@@ -250,7 +418,9 @@ function grammarDashboardHighlight(
 
     return {
       focusLabel:
-        request.transform === "share"
+        selectedRow !== null
+          ? "Selected group"
+          : request.transform === "share"
           ? "Largest share"
           : request.metric === "transaction_count"
             ? "Most active group"
@@ -265,7 +435,9 @@ function grammarDashboardHighlight(
       tertiaryLabel: "Share of the result",
       tertiaryValue: share === null ? "—" : `${share.toFixed(1)}%`,
       finding:
-        gap === null
+        selectedRow !== null
+          ? `${frame.categories[strongestRow] ?? "This group"} represents ${share === null ? formatValue(strongestValue, request) : `${share.toFixed(1)}% of the result`}.`
+          : gap === null
           ? `${frame.categories[strongestRow] ?? "The leading group"} has the highest value.`
           : `${frame.categories[strongestRow] ?? "The leading group"} leads the next group by ${formatValue(gap, request)}.`,
     };
@@ -287,14 +459,17 @@ function grammarDashboardHighlight(
     );
 
     return {
-      focusLabel: "Most common range",
+      focusLabel: selectedRow === null ? "Most common range" : "Selected range",
       focusValue: label,
       focusDetail: `${formatCount(Math.round(strongestValue))} sales`,
       secondaryLabel: "In this range",
       secondaryValue: share === null ? "—" : `${share.toFixed(1)}%`,
       tertiaryLabel: "£1m+ sales",
       tertiaryValue: formatCount(Math.round(millionPlus)),
-      finding: `${label} is the largest price band, containing ${share === null ? "the most" : `${share.toFixed(1)}% of`} recorded sales.`,
+      finding:
+        selectedRow === null
+          ? `${label} is the largest price band, containing ${share === null ? "the most" : `${share.toFixed(1)}% of`} recorded sales.`
+          : `${label} contains ${share === null ? formatCount(Math.round(strongestValue)) : `${share.toFixed(1)}% of`} recorded sales.`,
     };
   }
 
@@ -305,19 +480,93 @@ function grammarDashboardHighlight(
     secondValue === null ? null : Math.abs(strongestValue - secondValue);
 
   return {
-    focusLabel: "Strongest intersection",
+    focusLabel:
+      selectedRow === null ? "Strongest intersection" : "Selected intersection",
     focusValue: formatValue(strongestValue, request),
     focusDetail: `${matrix.xLabels[matrix.xIndexes[strongestRow]]} · ${matrix.yLabels[matrix.yIndexes[strongestRow]]}`,
     secondaryLabel: "Gap to next",
     secondaryValue: gap === null ? "—" : formatValue(gap, request),
     tertiaryLabel: "Combinations",
     tertiaryValue: matrix.values.length.toLocaleString(),
-    finding: `${matrix.xLabels[matrix.xIndexes[strongestRow]]} with ${matrix.yLabels[matrix.yIndexes[strongestRow]]} is the strongest intersection.`,
+    finding:
+      selectedRow === null
+        ? `${matrix.xLabels[matrix.xIndexes[strongestRow]]} with ${matrix.yLabels[matrix.yIndexes[strongestRow]]} is the strongest intersection.`
+        : `${matrix.xLabels[matrix.xIndexes[strongestRow]]} with ${matrix.yLabels[matrix.yIndexes[strongestRow]]} has a value of ${formatValue(strongestValue, request)}.`,
   };
+}
+
+function grammarDeepDiveActions(
+  frame: CategoryFrame | HistogramFrame | MatrixFrame,
+  request: GrammarAnalysisRequest,
+  selectedRow: number | null,
+): readonly AnalysisDeepDiveAction[] {
+  if (selectedRow === null) {
+    return [];
+  }
+
+  if (frame.kind === "categorical" && request.shape === "categorical") {
+    const category = frame.categories[selectedRow];
+
+    return category === undefined
+      ? []
+      : [
+          {
+            label: `Trace ${category} over time`,
+            prompt: `Continue the current analysis by focusing on "${category}". Show the same measure over time.`,
+          },
+          {
+            label: `Break down ${category}`,
+            prompt: `Continue the current analysis by focusing on "${category}". Break it down by the most informative available category.`,
+          },
+        ];
+  }
+
+  if (frame.kind === "histogram" && request.shape === "histogram") {
+    const start = frame.binStarts[selectedRow];
+    const end = frame.binEnds[selectedRow];
+
+    if (start === undefined || end === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        label: "Break down this range",
+        prompt: `Continue the current analysis by focusing on values from ${formatPrice(start)} to ${formatPrice(end)}. Break this range down by the most informative available category.`,
+      },
+      {
+        label: "Trace this range over time",
+        prompt: `Continue the current analysis by focusing on values from ${formatPrice(start)} to ${formatPrice(end)}. Show how this range changes over time.`,
+      },
+    ];
+  }
+
+  if (frame.kind !== "matrix" || request.shape !== "matrix") {
+    return [];
+  }
+
+  const xLabel = frame.xLabels[frame.xIndexes[selectedRow]];
+  const yLabel = frame.yLabels[frame.yIndexes[selectedRow]];
+
+  if (xLabel === undefined || yLabel === undefined) {
+    return [];
+  }
+
+  return [
+    {
+      label: "Trace this intersection",
+      prompt: `Continue the current analysis by focusing on "${xLabel}" with "${yLabel}". Show the same measure over time.`,
+    },
+    {
+      label: "Explain this intersection",
+      prompt: `Continue the current analysis by focusing on "${xLabel}" with "${yLabel}". Compare it with the nearest relevant groups.`,
+    },
+  ];
 }
 
 export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   const { failAnalysis, reportAnalysis } = useAnalysisPerformance();
+  const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const query = useQuery({
     queryKey: ["grammar-analysis", request],
     queryFn: async () => loadGrammarAnalysis(request),
@@ -381,7 +630,16 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   }
 
   const loaded = query.data.value;
-  const highlight = grammarDashboardHighlight(loaded.frame, request);
+  const highlight = grammarDashboardHighlight(
+    loaded.frame,
+    request,
+    selectedRow,
+  );
+  const deepDiveActions = grammarDeepDiveActions(
+    loaded.frame,
+    request,
+    selectedRow,
+  );
   const mainWidth =
     loaded.frame.kind === "matrix" ? "lg:col-span-7" : "lg:col-span-8";
   const sideWidth =
@@ -399,9 +657,13 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   }
 
   return (
+    <LivingDashboard title={plan.title}>
     <article className="dashboard-revealing space-y-3">
       <div className="analysis-bento">
-      <section className={`analysis-tile col-span-12 p-5 sm:p-7 ${mainWidth}`}>
+      <section
+        className={`analysis-tile col-span-12 p-5 sm:p-7 ${mainWidth}`}
+        data-living-role="focus"
+      >
         <div className="mb-5 border-b border-[#09265b]/8 pb-4">
           <InsightHeader
             eyebrow={plan.operation}
@@ -410,23 +672,48 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
           />
         </div>
         {loaded.frame.kind === "categorical" && request.shape === "categorical" && (
-          <CategoryView frame={loaded.frame} request={request} />
+          <CategoryView
+            frame={loaded.frame}
+            onSelect={setSelectedRow}
+            request={request}
+            selectedRow={selectedRow}
+          />
         )}
         {loaded.frame.kind === "histogram" && request.shape === "histogram" && (
-          <HistogramView frame={loaded.frame} request={request} />
+          <HistogramView
+            frame={loaded.frame}
+            onSelect={setSelectedRow}
+            request={request}
+            selectedRow={selectedRow}
+          />
         )}
         {loaded.frame.kind === "matrix" && request.shape === "matrix" && (
-          <MatrixView frame={loaded.frame} request={request} />
+          <MatrixView
+            frame={loaded.frame}
+            onSelect={setSelectedRow}
+            request={request}
+            selectedRow={selectedRow}
+          />
         )}
+        <DeepDiveActions
+          actions={deepDiveActions}
+          prompt="Select a lane, range, or intersection to reveal deeper views."
+        />
       </section>
 
-      <aside className={`col-span-12 grid gap-3 ${sideWidth} lg:grid-rows-2`}>
+      <aside
+        className={`col-span-12 grid gap-3 ${sideWidth} lg:grid-rows-2`}
+        data-living-role="context"
+      >
         <section className="brand-hero analysis-tile relative flex min-h-36 flex-col justify-between overflow-hidden p-5">
           <div className="relative z-10">
             <p className="text-[11px] text-[var(--ink-tertiary)]">
               {highlight.focusLabel}
             </p>
-            <p className="mt-3 break-words text-2xl font-semibold tracking-[-0.045em] text-[var(--ink)]">
+            <p
+              aria-live="polite"
+              className="mt-3 break-words text-2xl font-semibold tracking-[-0.045em] text-[var(--ink)]"
+            >
               {highlight.focusValue}
             </p>
           </div>
@@ -468,5 +755,6 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
       <AnalysisEvidenceLink />
       </div>
     </article>
+    </LivingDashboard>
   );
 }

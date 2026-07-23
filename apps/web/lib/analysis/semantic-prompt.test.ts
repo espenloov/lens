@@ -80,11 +80,67 @@ describe("buildSemanticAgentSystemPrompt", () => {
     expect(prompt).toContain(
       'measure "revenue", aggregation "sum", interval "month"',
     );
+    expect(prompt).toContain(
+      "call respondWithoutAnalysis with kind out_of_scope",
+    );
     expect(prompt).not.toContain("private_amount_column");
     expect(prompt).not.toContain("private_timestamp_column");
     expect(prompt).not.toContain("private_channel_column");
     expect(prompt).not.toContain("private_database");
     expect(prompt).not.toContain("private_table");
+  });
+
+  it("chooses a useful overview interval for short datasets", () => {
+    const manifest = analyticalTableManifestSchema.parse({
+      contract: "analytical_table/v1",
+      identifier: null,
+      time: {
+        key: "occurred_at",
+        label: "Occurred at",
+        expression: "occurred_at",
+        storageType: "datetime",
+        granularities: ["year", "quarter", "month"],
+        timezone: "UTC",
+      },
+      measures: [
+        {
+          key: "amount",
+          label: "Amount",
+          expression: "amount",
+          defaultAggregation: "sum",
+          aggregations: ["sum"],
+          format: { kind: "number", maximumFractionDigits: 0 },
+          resultScale: 0,
+          supportsDistribution: false,
+        },
+      ],
+      dimensions: [],
+      geography: null,
+    });
+    const source: AnalysisDataSource = {
+      slug: "short_events",
+      displayName: "Short events",
+      version: 1,
+      contractVersion: "analytical_table/v1",
+      database: "default",
+      table: "short_events",
+      mappingSql: "SELECT occurred_at, amount FROM default.short_events",
+      dateFrom: "2015-07-01",
+      dateTo: "2015-09-30",
+      rowCount: 1_000,
+      supportsPrewhere: false,
+      queryArenaEligible: true,
+      manifest,
+      capabilities: deriveAnalyticalCapabilities(manifest, {
+        dateFrom: "2015-07-01",
+        dateTo: "2015-09-30",
+      }),
+      builtin: false,
+    };
+
+    expect(buildSemanticAgentSystemPrompt(source)).toContain(
+      'measure "amount", aggregation "sum", interval "month"',
+    );
   });
 });
 
@@ -95,6 +151,9 @@ describe("buildPropertyAgentSystemPrompt", () => {
     expect(prompt).toContain('"Show me what this data looks like"');
     expect(prompt).toContain(
       "Treat broad requests to show, summarize, or understand the dataset as this default overview",
+    );
+    expect(prompt).toContain(
+      "call respondWithoutAnalysis with kind out_of_scope",
     );
   });
 });

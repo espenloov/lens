@@ -8,6 +8,7 @@ import {
   registrationSnapshotSchema,
 } from "@/lib/data-sources/contracts";
 import { authorizeDataSourceRead } from "@/lib/data-sources/access";
+import { registrationFailureMessage } from "@/lib/data-sources/registration-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,10 @@ export async function GET(
               result: result.success ? result.data : null,
               error:
                 run.isCompleted && !run.isSuccess
-                  ? "Dataset validation failed"
+                  ? registrationFailureMessage(
+                      run.error,
+                      metadata.success ? metadata.data.phase : undefined,
+                    )
                   : null,
             });
 

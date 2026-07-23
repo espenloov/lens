@@ -6,6 +6,7 @@ import {
   queryArenaStartResponseSchema,
   queryArenaStartSchema,
 } from "@/lib/query-arena/contracts";
+import { authorizeDataSourceRead } from "@/lib/data-sources/access";
 import {
   createQueryArenaSignature,
   createArenaId,
@@ -14,6 +15,12 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
+  const access = authorizeDataSourceRead(request);
+
+  if (access.isErr()) {
+    return Response.json(access.error, { status: access.error.status });
+  }
+
   const body = await ResultAsync.fromPromise(request.json(), () => null);
 
   if (body.isErr()) {

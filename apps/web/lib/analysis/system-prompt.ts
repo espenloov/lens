@@ -1,6 +1,53 @@
 import { BUILTIN_DATA_SOURCE } from "../data-sources/builtin";
 import type { AnalysisDataSource } from "../data-sources/contracts";
 
+const APPROXIMATE_INTERVAL_DAYS = {
+  year: 365.25,
+  quarter: 91.31,
+  month: 30.44,
+} as const;
+
+function coverageDays(source: AnalysisDataSource): number | null {
+  if (source.dateFrom === null || source.dateTo === null) {
+    return null;
+  }
+
+  const from = new Date(`${source.dateFrom}T00:00:00.000Z`).valueOf();
+  const to = new Date(`${source.dateTo}T00:00:00.000Z`).valueOf();
+
+  return Number.isFinite(from) && Number.isFinite(to) && to >= from
+    ? (to - from) / 86_400_000 + 1
+    : null;
+}
+
+function overviewInterval(source: AnalysisDataSource) {
+  const granularities = source.manifest.time?.granularities ?? [];
+  const days = coverageDays(source);
+
+  if (days === null || granularities.length === 0) {
+    return granularities[0];
+  }
+
+  const candidates = granularities
+    .map((interval) => ({
+      interval,
+      buckets: days / APPROXIMATE_INTERVAL_DAYS[interval],
+    }))
+    .sort(
+      (left, right) =>
+        APPROXIMATE_INTERVAL_DAYS[right.interval] -
+        APPROXIMATE_INTERVAL_DAYS[left.interval],
+    );
+
+  return (
+    candidates.find(
+      (candidate) => candidate.buckets >= 3 && candidate.buckets <= 36,
+    )?.interval ??
+    candidates.find((candidate) => candidate.buckets >= 2)?.interval ??
+    candidates.at(-1)?.interval
+  );
+}
+
 export function buildPropertyAgentSystemPrompt(
   source: AnalysisDataSource,
 ): string {
@@ -18,6 +65,9 @@ ${source.slug === "uk_price_paid" ? "- January 2024 is partial. Mention that lim
 
 YOUR ROLE
 - Understand the analytical intent and call submitAnalysisPlan with exactly one operation-specific plan.
+- Answer only questions that can be supported by the pinned dataset.
+- For unrelated knowledge, advice, or requests outside this dataset, call respondWithoutAnalysis with kind out_of_scope. Never answer the external question.
+- When one missing analytical choice materially changes the result, call respondWithoutAnalysis with kind clarification.
 - Never write SQL, column names, table names, chart code, or executable code.
 - Never claim correlation proves causation.
 - Keep the explanation concise because the interactive visualization is the answer.
@@ -89,7 +139,7 @@ export function buildSemanticAgentSystemPrompt(
   }));
   const defaultMeasure = manifest.measures[0];
   const defaultDimension = manifest.dimensions[0];
-  const defaultInterval = manifest.time?.granularities[0];
+  const defaultInterval = overviewInterval(source);
   const overviewRule =
     manifest.time !== null &&
     defaultMeasure !== undefined &&
@@ -115,6 +165,9 @@ PINNED DATASET
 
 YOUR ROLE
 - Understand the question and call submitSemanticAnalysisPlan exactly once.
+- Answer only questions that can be supported by the pinned dataset.
+- For unrelated knowledge, advice, or requests outside this dataset, call respondWithoutAnalysis with kind out_of_scope. Never answer the external question.
+- When one missing analytical choice materially changes the result, call respondWithoutAnalysis with kind clarification.
 - Use only the dataset ID, version, operations, semantic keys, aggregations, and filter values declared above.
 - Always set dataset to ${source.slug} and datasetVersion to ${source.version}.
 - Never produce SQL, table names, physical column names, code, or invented fields.

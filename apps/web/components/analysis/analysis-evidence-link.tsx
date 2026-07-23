@@ -12,7 +12,10 @@ export function AnalysisEvidenceLink({
   const { openPerformance } = useAnalysisNavigation();
 
   return (
-    <section className="analysis-tile col-span-12 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <section
+      className="analysis-tile col-span-12 flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+      data-living-role="evidence"
+    >
       <div className="flex items-center gap-3">
         <span className="grid size-8 place-items-center rounded-xl bg-[#8796d6]/10 text-[#5c6db0]">
           <Gauge aria-hidden="true" className="size-4" />

@@ -5,6 +5,7 @@ import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 
 import { analysisPlanSchema } from "@/lib/analysis/contracts";
+import { analysisConversationResponseSchema } from "@/lib/analysis/conversation-response";
 import { prepareAnalysis } from "@/lib/analysis/prepare-analysis";
 import {
   prepareSemanticAnalysis,
@@ -74,6 +75,7 @@ function createSemanticAgentTools(source: AnalysisDataSource) {
         const prepared = prepareSemanticAnalysis(plan, source.manifest, {
           dataset: source.slug,
           datasetVersion: source.version,
+          capabilities: source.capabilities,
         });
 
         return prepared.isOk()
@@ -92,11 +94,21 @@ function createSemanticAgentTools(source: AnalysisDataSource) {
   };
 }
 
+const conversationTools = {
+  respondWithoutAnalysis: tool({
+    description:
+      "Use for one necessary analytical clarification or when the question cannot be answered from the pinned dataset. Never answer unrelated general-knowledge questions.",
+    inputSchema: analysisConversationResponseSchema,
+    execute: async (response) => response,
+  }),
+};
+
 export const propertyAgentTools = createPropertyAgentTools(
   BUILTIN_DATA_SOURCE,
 );
 type AllAgentTools = typeof propertyAgentTools &
-  ReturnType<typeof createSemanticAgentTools>;
+  ReturnType<typeof createSemanticAgentTools> &
+  typeof conversationTools;
 
 export type PropertyAgentUIMessage = InferChatUIMessageFromTools<
   AllAgentTools
@@ -129,8 +141,8 @@ export const propertyAgent = chat
       }
 
       return source.value.builtin
-        ? createPropertyAgentTools(source.value)
-        : createSemanticAgentTools(source.value);
+        ? { ...createPropertyAgentTools(source.value), ...conversationTools }
+        : { ...createSemanticAgentTools(source.value), ...conversationTools };
     },
     maxTurns: 10,
     turnTimeout: "10m",
@@ -161,7 +173,8 @@ export const propertyAgent = chat
         model: getModel(),
         messages,
         abortSignal: signal,
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(1),
+        toolChoice: "required",
       });
     },
   });
