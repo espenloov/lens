@@ -95,6 +95,126 @@ export class ExplorationWorkspace {
     readonly row_count: number;
 }
 
+export class GenericAnalyticalTable {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Calculates Pearson correlation between two selected measure roles.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when either role is unknown.
+     */
+    correlation(left_measure: string, right_measure: string): GenericCorrelation;
+    /**
+     * Builds a bounded equal-width distribution for one measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for an unknown role, empty table, or unsafe
+     * bin count.
+     */
+    distribution(measure: string, bin_count: number): GenericDistribution;
+    /**
+     * Aggregates one measure by one categorical dimension role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an unsupported aggregation.
+     */
+    grouped_comparison(measure: string, dimension: string, aggregation: string): GenericGroupComparison;
+    /**
+     * Calculates robust per-group anomaly scores for one measure.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an invalid threshold.
+     */
+    robust_anomalies(measure: string, dimension: string | null | undefined, threshold: number): GenericAnomalies;
+    /**
+     * Summarizes one selected measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when the role is unknown or the table is empty.
+     */
+    summarize(measure: string): GenericNumericSummary;
+    /**
+     * Produces chronological columns for one measure and optional dimension.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a required semantic role is unavailable.
+     */
+    trend_input(measure: string, dimension?: string | null): GenericTrendInput;
+    readonly row_count: number;
+}
+
+export class GenericAnomalies {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    expected(): Float64Array;
+    flags(): Uint8Array;
+    scores(): Float64Array;
+    validity(): Uint8Array;
+}
+
+export class GenericCorrelation {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly coefficient: number | undefined;
+    readonly pair_count: number;
+}
+
+export class GenericDistribution {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    bin_ends(): Float64Array;
+    bin_starts(): Float64Array;
+    counts(): BigUint64Array;
+    readonly bin_count: number;
+}
+
+export class GenericGroupComparison {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    label(index: number): string | undefined;
+    observation_counts(): BigUint64Array;
+    values(): Float64Array;
+    readonly group_count: number;
+}
+
+export class GenericNumericSummary {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly count: number;
+    readonly maximum: number;
+    readonly mean: number;
+    readonly median: number;
+    readonly minimum: number;
+    readonly q1: number;
+    readonly q3: number;
+    readonly standard_deviation: number;
+}
+
+export class GenericTrendInput {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    epoch_milliseconds(): BigInt64Array;
+    series_indexes(): Uint32Array;
+    series_name(index: number): string | undefined;
+    values(): Float64Array;
+    readonly row_count: number;
+    readonly series_count: number;
+}
+
 export class HistogramData {
     private constructor();
     free(): void;
@@ -166,6 +286,20 @@ export class TimeSeriesVerification {
  * Returns a JavaScript error when the stream or bounded workspace configuration is invalid.
  */
 export function build_exploration_workspace(bytes: Uint8Array, day_count: number, bin_count: number, bucket_minimum: number, bucket_width: number, cardinality_0: number, cardinality_1: number, cardinality_2: number): ExplorationWorkspace;
+
+/**
+ * Decodes an `analytical_table/v1` Arrow stream using semantic role keys.
+ *
+ * The minimum browser boundary accepts one required measure, one optional
+ * secondary measure, one optional time role, and one optional dimension.
+ * Additional core roles can be introduced without changing the Arrow decoder.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when role keys are invalid or the Arrow data
+ * violates the generic analytical-table safety contract.
+ */
+export function decode_analytical_table_arrow(bytes: Uint8Array, time_column: string | null | undefined, primary_measure: string, secondary_measure?: string | null, dimension?: string | null): GenericAnalyticalTable;
 
 /**
  * Decodes a `categorical/v1` Arrow IPC stream.
@@ -261,6 +395,13 @@ export interface InitOutput {
     readonly __wbg_explorationdensityframe_free: (a: number, b: number) => void;
     readonly __wbg_explorationwindow_free: (a: number, b: number) => void;
     readonly __wbg_explorationworkspace_free: (a: number, b: number) => void;
+    readonly __wbg_genericanalyticaltable_free: (a: number, b: number) => void;
+    readonly __wbg_genericanomalies_free: (a: number, b: number) => void;
+    readonly __wbg_genericcorrelation_free: (a: number, b: number) => void;
+    readonly __wbg_genericdistribution_free: (a: number, b: number) => void;
+    readonly __wbg_genericgroupcomparison_free: (a: number, b: number) => void;
+    readonly __wbg_genericnumericsummary_free: (a: number, b: number) => void;
+    readonly __wbg_generictrendinput_free: (a: number, b: number) => void;
     readonly __wbg_histogramdata_free: (a: number, b: number) => void;
     readonly __wbg_matrixdata_free: (a: number, b: number) => void;
     readonly __wbg_timeseriesdata_free: (a: number, b: number) => void;
@@ -275,6 +416,7 @@ export interface InitOutput {
     readonly categorydata_observation_counts: (a: number, b: number) => void;
     readonly categorydata_row_count: (a: number) => number;
     readonly categorydata_values: (a: number, b: number) => void;
+    readonly decode_analytical_table_arrow: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => void;
     readonly decode_category_arrow: (a: number, b: number, c: number) => void;
     readonly decode_histogram_arrow: (a: number, b: number, c: number) => void;
     readonly decode_matrix_arrow: (a: number, b: number, c: number) => void;
@@ -303,6 +445,35 @@ export interface InitOutput {
     readonly explorationworkspace_row_count: (a: number) => number;
     readonly explorationworkspace_summarize: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly fingerprint_time_series_arrow: (a: number, b: number, c: number) => void;
+    readonly genericanalyticaltable_correlation: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly genericanalyticaltable_distribution: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly genericanalyticaltable_grouped_comparison: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly genericanalyticaltable_robust_anomalies: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly genericanalyticaltable_row_count: (a: number) => number;
+    readonly genericanalyticaltable_summarize: (a: number, b: number, c: number, d: number) => void;
+    readonly genericanalyticaltable_trend_input: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly genericanomalies_expected: (a: number, b: number) => void;
+    readonly genericanomalies_flags: (a: number, b: number) => void;
+    readonly genericanomalies_scores: (a: number, b: number) => void;
+    readonly genericanomalies_validity: (a: number, b: number) => void;
+    readonly genericcorrelation_coefficient: (a: number, b: number) => void;
+    readonly genericdistribution_bin_count: (a: number) => number;
+    readonly genericdistribution_bin_ends: (a: number, b: number) => void;
+    readonly genericdistribution_bin_starts: (a: number, b: number) => void;
+    readonly genericdistribution_counts: (a: number, b: number) => void;
+    readonly genericgroupcomparison_group_count: (a: number) => number;
+    readonly genericgroupcomparison_label: (a: number, b: number, c: number) => void;
+    readonly genericgroupcomparison_observation_counts: (a: number, b: number) => void;
+    readonly genericgroupcomparison_values: (a: number, b: number) => void;
+    readonly genericnumericsummary_count: (a: number) => number;
+    readonly genericnumericsummary_median: (a: number) => number;
+    readonly genericnumericsummary_q1: (a: number) => number;
+    readonly genericnumericsummary_q3: (a: number) => number;
+    readonly generictrendinput_epoch_milliseconds: (a: number, b: number) => void;
+    readonly generictrendinput_row_count: (a: number) => number;
+    readonly generictrendinput_series_indexes: (a: number, b: number) => void;
+    readonly generictrendinput_series_name: (a: number, b: number, c: number) => void;
+    readonly generictrendinput_values: (a: number, b: number) => void;
     readonly histogramdata_bin_ends: (a: number, b: number) => void;
     readonly histogramdata_bin_starts: (a: number, b: number) => void;
     readonly histogramdata_observation_counts: (a: number, b: number) => void;
@@ -329,7 +500,6 @@ export interface InitOutput {
     readonly timeseriesfingerprint_digest: (a: number, b: number) => void;
     readonly timeseriesverification_equivalent: (a: number) => number;
     readonly timeseriesverification_left_fingerprint: (a: number, b: number) => void;
-    readonly timeseriesverification_left_row_count: (a: number) => number;
     readonly timeseriesverification_mismatch_reason: (a: number, b: number) => void;
     readonly timeseriesverification_right_fingerprint: (a: number, b: number) => void;
     readonly verify_time_series_arrow: (a: number, b: number, c: number, d: number, e: number) => void;
@@ -337,7 +507,14 @@ export interface InitOutput {
     readonly matrixdata_y_count: (a: number) => number;
     readonly explorationworkspace_bucket_minimum: (a: number) => number;
     readonly explorationworkspace_bucket_width: (a: number) => number;
+    readonly genericcorrelation_pair_count: (a: number) => number;
+    readonly genericnumericsummary_maximum: (a: number) => number;
+    readonly genericnumericsummary_mean: (a: number) => number;
+    readonly genericnumericsummary_minimum: (a: number) => number;
+    readonly genericnumericsummary_standard_deviation: (a: number) => number;
+    readonly generictrendinput_series_count: (a: number) => number;
     readonly timeseriesfingerprint_row_count: (a: number) => number;
+    readonly timeseriesverification_left_row_count: (a: number) => number;
     readonly timeseriesverification_right_row_count: (a: number) => number;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export: (a: number, b: number, c: number) => void;

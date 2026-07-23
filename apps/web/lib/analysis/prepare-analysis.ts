@@ -16,6 +16,12 @@ import type { AnalysisToolOutput } from "./tool-output";
 const DATASET_START = "1995-01-01";
 const DATASET_END = "2024-01-31";
 
+export type DatasetBounds = {
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  readonly version?: number;
+};
+
 export type UnsupportedAnalysisPlanError = {
   readonly type: "unsupported_analysis_plan";
   readonly message: string;
@@ -30,7 +36,16 @@ function unsupported(message: string): UnsupportedAnalysisPlanError {
 
 function normalizeFilters(
   filters: AnalysisFilters,
+  bounds: DatasetBounds,
 ): Result<ExecutableFilters, UnsupportedAnalysisPlanError> {
+  if (filters.dateFrom !== null && filters.dateFrom < bounds.dateFrom) {
+    return err(unsupported(`The selected dataset starts on ${bounds.dateFrom}`));
+  }
+
+  if (filters.dateTo !== null && filters.dateTo > bounds.dateTo) {
+    return err(unsupported(`The selected dataset ends on ${bounds.dateTo}`));
+  }
+
   const location =
     filters.location === null
       ? null
@@ -40,8 +55,8 @@ function normalizeFilters(
         };
   const parsed = executableFiltersSchema.safeParse({
     ...filters,
-    dateFrom: filters.dateFrom ?? DATASET_START,
-    dateTo: filters.dateTo ?? DATASET_END,
+    dateFrom: filters.dateFrom ?? bounds.dateFrom,
+    dateTo: filters.dateTo ?? bounds.dateTo,
     location,
   });
 
@@ -88,8 +103,12 @@ function calendarDayCount(dateFrom: string, dateTo: string): number {
 
 export function toExecutableAnalysis(
   plan: AnalysisPlan,
+  bounds: DatasetBounds = {
+    dateFrom: DATASET_START,
+    dateTo: DATASET_END,
+  },
 ): Result<ExecutableAnalysisRequest, UnsupportedAnalysisPlanError> {
-  return normalizeFilters(plan.filters).andThen((filters) => {
+  return normalizeFilters(plan.filters, bounds).andThen((filters) => {
     let request: ExecutableAnalysisRequest;
 
     switch (plan.operation) {
@@ -104,6 +123,8 @@ export function toExecutableAnalysis(
 
         request = {
           shape: "time_series",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "trend",
           metric: plan.metric,
           interval: plan.interval,
@@ -127,6 +148,8 @@ export function toExecutableAnalysis(
           plan.interval === null
             ? {
                 shape: "categorical",
+                dataset: plan.dataset,
+                datasetVersion: bounds.version,
                 operation: "comparison",
                 metric: plan.metric,
                 dimension: plan.compareBy,
@@ -137,6 +160,8 @@ export function toExecutableAnalysis(
               }
             : {
                 shape: "time_series",
+                dataset: plan.dataset,
+                datasetVersion: bounds.version,
                 operation: "comparison",
                 metric: plan.metric,
                 interval: plan.interval,
@@ -150,6 +175,8 @@ export function toExecutableAnalysis(
       case "ranking":
         request = {
           shape: "categorical",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "ranking",
           metric: plan.metric,
           dimension: plan.rankBy,
@@ -163,6 +190,8 @@ export function toExecutableAnalysis(
       case "distribution":
         request = {
           shape: "histogram",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "distribution",
           field: plan.field,
           splitBy: plan.splitBy,
@@ -177,6 +206,8 @@ export function toExecutableAnalysis(
           plan.interval === null
             ? {
                 shape: "categorical",
+                dataset: plan.dataset,
+                datasetVersion: bounds.version,
                 operation: "composition",
                 metric: "transaction_count",
                 dimension: plan.dimension,
@@ -187,6 +218,8 @@ export function toExecutableAnalysis(
               }
             : {
                 shape: "time_series",
+                dataset: plan.dataset,
+                datasetVersion: bounds.version,
                 operation: "composition",
                 metric: "transaction_count",
                 interval: plan.interval,
@@ -200,6 +233,8 @@ export function toExecutableAnalysis(
       case "heatmap":
         request = {
           shape: "matrix",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "heatmap",
           metric: plan.metric,
           xDimension: plan.xDimension,
@@ -227,6 +262,8 @@ export function toExecutableAnalysis(
 
         request = {
           shape: "time_series",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "anomaly",
           metric: plan.metric,
           interval: plan.interval,
@@ -248,6 +285,8 @@ export function toExecutableAnalysis(
 
         request = {
           shape: "exploration",
+          dataset: plan.dataset,
+          datasetVersion: bounds.version,
           operation: "exploration",
           valueField: plan.valueField,
           dimensions: plan.dimensions,
@@ -272,8 +311,11 @@ export function toExecutableAnalysis(
   });
 }
 
-export function prepareAnalysis(plan: AnalysisPlan): AnalysisToolOutput {
-  const request = toExecutableAnalysis(plan);
+export function prepareAnalysis(
+  plan: AnalysisPlan,
+  bounds?: DatasetBounds,
+): AnalysisToolOutput {
+  const request = toExecutableAnalysis(plan, bounds);
 
   if (request.isErr()) {
     return {

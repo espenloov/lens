@@ -75,6 +75,41 @@ pub struct AnomalyValues {
 }
 
 #[wasm_bindgen]
+pub struct GenericAnalyticalTable {
+    inner: lens_core::generic_table::AnalyticalTable,
+}
+
+#[wasm_bindgen]
+pub struct GenericNumericSummary {
+    inner: lens_core::generic_table::NumericSummary,
+}
+
+#[wasm_bindgen]
+pub struct GenericDistribution {
+    inner: lens_core::generic_table::Distribution,
+}
+
+#[wasm_bindgen]
+pub struct GenericGroupComparison {
+    inner: lens_core::generic_table::GroupComparison,
+}
+
+#[wasm_bindgen]
+pub struct GenericTrendInput {
+    inner: lens_core::generic_table::TrendInput,
+}
+
+#[wasm_bindgen]
+pub struct GenericAnomalies {
+    inner: lens_core::generic_table::RobustAnomalies,
+}
+
+#[wasm_bindgen]
+pub struct GenericCorrelation {
+    inner: lens_core::generic_table::Correlation,
+}
+
+#[wasm_bindgen]
 pub struct ExplorationWorkspace {
     inner: lens_core::exploration::ExplorationWorkspace,
 }
@@ -475,6 +510,341 @@ impl AnomalyValues {
     }
 }
 
+#[wasm_bindgen]
+impl GenericNumericSummary {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn count(&self) -> u32 {
+        u32::try_from(self.inner.count()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn minimum(&self) -> f64 {
+        self.inner.minimum()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn maximum(&self) -> f64 {
+        self.inner.maximum()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn mean(&self) -> f64 {
+        self.inner.mean()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn standard_deviation(&self) -> f64 {
+        self.inner.standard_deviation()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn q1(&self) -> f64 {
+        self.inner.q1()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn median(&self) -> f64 {
+        self.inner.median()
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn q3(&self) -> f64 {
+        self.inner.q3()
+    }
+}
+
+#[wasm_bindgen]
+impl GenericDistribution {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn bin_count(&self) -> u32 {
+        u32::try_from(self.inner.counts().len()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn bin_starts(&self) -> Vec<f64> {
+        self.inner.bin_starts().to_vec()
+    }
+
+    #[must_use]
+    pub fn bin_ends(&self) -> Vec<f64> {
+        self.inner.bin_ends().to_vec()
+    }
+
+    #[must_use]
+    pub fn counts(&self) -> Vec<u64> {
+        self.inner.counts().to_vec()
+    }
+}
+
+#[wasm_bindgen]
+impl GenericGroupComparison {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn group_count(&self) -> u32 {
+        u32::try_from(self.inner.labels().len()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn label(&self, index: u32) -> Option<String> {
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| self.inner.labels().get(index))
+            .cloned()
+    }
+
+    #[must_use]
+    pub fn values(&self) -> Vec<f64> {
+        self.inner.values().to_vec()
+    }
+
+    #[must_use]
+    pub fn observation_counts(&self) -> Vec<u64> {
+        self.inner.observation_counts().to_vec()
+    }
+}
+
+#[wasm_bindgen]
+impl GenericTrendInput {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn row_count(&self) -> u32 {
+        u32::try_from(self.inner.values().len()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn series_count(&self) -> u32 {
+        u32::try_from(self.inner.series_names().len()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn epoch_milliseconds(&self) -> Vec<i64> {
+        self.inner.epoch_milliseconds().to_vec()
+    }
+
+    #[must_use]
+    pub fn series_indexes(&self) -> Vec<u32> {
+        self.inner.series_indexes().to_vec()
+    }
+
+    #[must_use]
+    pub fn series_name(&self, index: u32) -> Option<String> {
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| self.inner.series_names().get(index))
+            .cloned()
+    }
+
+    #[must_use]
+    pub fn values(&self) -> Vec<f64> {
+        self.inner.values().to_vec()
+    }
+}
+
+#[wasm_bindgen]
+impl GenericAnomalies {
+    #[must_use]
+    pub fn expected(&self) -> Vec<f64> {
+        self.inner.expected().to_vec()
+    }
+
+    #[must_use]
+    pub fn scores(&self) -> Vec<f64> {
+        self.inner.scores().to_vec()
+    }
+
+    #[must_use]
+    pub fn validity(&self) -> Vec<u8> {
+        self.inner.validity().to_vec()
+    }
+
+    #[must_use]
+    pub fn flags(&self) -> Vec<u8> {
+        self.inner.flags().to_vec()
+    }
+}
+
+#[wasm_bindgen]
+impl GenericCorrelation {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn pair_count(&self) -> u32 {
+        u32::try_from(self.inner.pair_count()).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn coefficient(&self) -> Option<f64> {
+        self.inner.coefficient()
+    }
+}
+
+fn parse_generic_aggregation(
+    aggregation: &str,
+) -> Result<lens_core::generic_table::Aggregation, JsValue> {
+    match aggregation {
+        "count" => Ok(lens_core::generic_table::Aggregation::Count),
+        "sum" => Ok(lens_core::generic_table::Aggregation::Sum),
+        "average" => Ok(lens_core::generic_table::Aggregation::Mean),
+        "median" => Ok(lens_core::generic_table::Aggregation::Median),
+        "minimum" => Ok(lens_core::generic_table::Aggregation::Minimum),
+        "maximum" => Ok(lens_core::generic_table::Aggregation::Maximum),
+        _ => Err(JsValue::from_str(
+            "aggregation must be count, sum, average, median, minimum, or maximum",
+        )),
+    }
+}
+
+#[wasm_bindgen]
+impl GenericAnalyticalTable {
+    #[must_use]
+    #[wasm_bindgen(getter)]
+    pub fn row_count(&self) -> u32 {
+        u32::try_from(self.inner.row_count()).unwrap_or(u32::MAX)
+    }
+
+    /// Summarizes one selected measure role.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error when the role is unknown or the table is empty.
+    pub fn summarize(&self, measure: &str) -> Result<GenericNumericSummary, JsValue> {
+        self.inner
+            .summarize(measure)
+            .map(|inner| GenericNumericSummary { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Builds a bounded equal-width distribution for one measure role.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error for an unknown role, empty table, or unsafe
+    /// bin count.
+    pub fn distribution(
+        &self,
+        measure: &str,
+        bin_count: u32,
+    ) -> Result<GenericDistribution, JsValue> {
+        let bin_count =
+            usize::try_from(bin_count).map_err(|_| JsValue::from_str("bin count exceeds usize"))?;
+        self.inner
+            .distribution(measure, bin_count)
+            .map(|inner| GenericDistribution { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Aggregates one measure by one categorical dimension role.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error for unknown roles or an unsupported aggregation.
+    pub fn grouped_comparison(
+        &self,
+        measure: &str,
+        dimension: &str,
+        aggregation: &str,
+    ) -> Result<GenericGroupComparison, JsValue> {
+        self.inner
+            .grouped_comparison(measure, dimension, parse_generic_aggregation(aggregation)?)
+            .map(|inner| GenericGroupComparison { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Produces chronological columns for one measure and optional dimension.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error when a required semantic role is unavailable.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn trend_input(
+        &self,
+        measure: &str,
+        dimension: Option<String>,
+    ) -> Result<GenericTrendInput, JsValue> {
+        self.inner
+            .trend_input(measure, dimension.as_deref())
+            .map(|inner| GenericTrendInput { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Calculates robust per-group anomaly scores for one measure.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error for unknown roles or an invalid threshold.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn robust_anomalies(
+        &self,
+        measure: &str,
+        dimension: Option<String>,
+        threshold: f64,
+    ) -> Result<GenericAnomalies, JsValue> {
+        self.inner
+            .robust_anomalies(measure, dimension.as_deref(), threshold)
+            .map(|inner| GenericAnomalies { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+
+    /// Calculates Pearson correlation between two selected measure roles.
+    ///
+    /// # Errors
+    ///
+    /// Returns a JavaScript error when either role is unknown.
+    pub fn correlation(
+        &self,
+        left_measure: &str,
+        right_measure: &str,
+    ) -> Result<GenericCorrelation, JsValue> {
+        self.inner
+            .correlation(left_measure, right_measure)
+            .map(|inner| GenericCorrelation { inner })
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
+}
+
+/// Decodes an `analytical_table/v1` Arrow stream using semantic role keys.
+///
+/// The minimum browser boundary accepts one required measure, one optional
+/// secondary measure, one optional time role, and one optional dimension.
+/// Additional core roles can be introduced without changing the Arrow decoder.
+///
+/// # Errors
+///
+/// Returns a JavaScript error when role keys are invalid or the Arrow data
+/// violates the generic analytical-table safety contract.
+#[wasm_bindgen]
+pub fn decode_analytical_table_arrow(
+    bytes: &[u8],
+    time_column: Option<String>,
+    primary_measure: String,
+    secondary_measure: Option<String>,
+    dimension: Option<String>,
+) -> Result<GenericAnalyticalTable, JsValue> {
+    let mut measures = vec![primary_measure];
+
+    if let Some(secondary) = secondary_measure {
+        measures.push(secondary);
+    }
+
+    let dimensions = dimension.into_iter().collect();
+    let schema = lens_core::generic_table::SemanticSchema::new(time_column, measures, dimensions)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let inner = lens_core::generic_table::decode_analytical_table(bytes, &schema)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+
+    Ok(GenericAnalyticalTable { inner })
+}
+
 fn parse_interval(interval: &str) -> Result<Interval, JsValue> {
     match interval {
         "year" => Ok(Interval::Year),
@@ -806,8 +1176,9 @@ pub fn verify_time_series_arrow(
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_time_series_arrow, derive_anomaly_scores, derive_period_changes, engine_name,
-        fingerprint_time_series_arrow, verify_time_series_arrow,
+        decode_analytical_table_arrow, decode_time_series_arrow, derive_anomaly_scores,
+        derive_period_changes, engine_name, fingerprint_time_series_arrow,
+        verify_time_series_arrow,
     };
 
     const MANCHESTER_YEARLY: &[u8] =
@@ -841,6 +1212,38 @@ mod tests {
         assert_eq!(data.series_count(), 2);
         assert_eq!(data.series_indexes().len(), 96);
         assert_eq!(data.observation_counts().len(), 96);
+    }
+
+    #[test]
+    fn exposes_generic_semantic_analytics_through_the_wasm_boundary() {
+        let table = decode_analytical_table_arrow(
+            LEEDS_BRISTOL_MONTHLY,
+            Some("period_start".to_owned()),
+            "value".to_owned(),
+            None,
+            Some("series".to_owned()),
+        )
+        .expect("generic ClickHouse fixture should decode");
+        let summary = table.summarize("value").expect("summary should work");
+        let distribution = table
+            .distribution("value", 8)
+            .expect("distribution should work");
+        let comparison = table
+            .grouped_comparison("value", "series", "average")
+            .expect("grouping should work");
+        let trend = table
+            .trend_input("value", Some("series".to_owned()))
+            .expect("trend preparation should work");
+        let anomalies = table
+            .robust_anomalies("value", Some("series".to_owned()), 3.5)
+            .expect("anomaly scoring should work");
+
+        assert_eq!(table.row_count(), 96);
+        assert_eq!(summary.count(), 96);
+        assert_eq!(distribution.counts().iter().sum::<u64>(), 96);
+        assert_eq!(comparison.group_count(), 2);
+        assert_eq!(trend.row_count(), 96);
+        assert_eq!(anomalies.validity().len(), 96);
     }
 
     #[test]

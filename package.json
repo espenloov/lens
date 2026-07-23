@@ -9,6 +9,7 @@
     "lint:web": "pnpm --dir apps/web lint",
     "build:wasm": "pnpm build:wasm:web && pnpm build:wasm:node && node scripts/prepare-wasm-package.mjs",
     "build:wasm:web": "wasm-pack build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm",
-    "build:wasm:node": "wasm-pack build crates/lens-wasm --target nodejs --release --out-dir ../../apps/web/lib/wasm/lens-node --out-name lens_wasm_node"
+    "build:wasm:node": "wasm-pack build crates/lens-wasm --target nodejs --release --out-dir ../../apps/web/lib/wasm/lens-node --out-name lens_wasm_node",
+    "benchmark:formats": "pnpm --dir apps/web exec node --env-file=$PWD/apps/web/.env.local --max-old-space-size=2048 $PWD/apps/web/scripts/benchmark-exploration-formats.mjs"
   }
 }

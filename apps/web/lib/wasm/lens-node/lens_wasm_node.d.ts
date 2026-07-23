@@ -95,6 +95,126 @@ export class ExplorationWorkspace {
     readonly row_count: number;
 }
 
+export class GenericAnalyticalTable {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Calculates Pearson correlation between two selected measure roles.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when either role is unknown.
+     */
+    correlation(left_measure: string, right_measure: string): GenericCorrelation;
+    /**
+     * Builds a bounded equal-width distribution for one measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for an unknown role, empty table, or unsafe
+     * bin count.
+     */
+    distribution(measure: string, bin_count: number): GenericDistribution;
+    /**
+     * Aggregates one measure by one categorical dimension role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an unsupported aggregation.
+     */
+    grouped_comparison(measure: string, dimension: string, aggregation: string): GenericGroupComparison;
+    /**
+     * Calculates robust per-group anomaly scores for one measure.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an invalid threshold.
+     */
+    robust_anomalies(measure: string, dimension: string | null | undefined, threshold: number): GenericAnomalies;
+    /**
+     * Summarizes one selected measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when the role is unknown or the table is empty.
+     */
+    summarize(measure: string): GenericNumericSummary;
+    /**
+     * Produces chronological columns for one measure and optional dimension.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a required semantic role is unavailable.
+     */
+    trend_input(measure: string, dimension?: string | null): GenericTrendInput;
+    readonly row_count: number;
+}
+
+export class GenericAnomalies {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    expected(): Float64Array;
+    flags(): Uint8Array;
+    scores(): Float64Array;
+    validity(): Uint8Array;
+}
+
+export class GenericCorrelation {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly coefficient: number | undefined;
+    readonly pair_count: number;
+}
+
+export class GenericDistribution {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    bin_ends(): Float64Array;
+    bin_starts(): Float64Array;
+    counts(): BigUint64Array;
+    readonly bin_count: number;
+}
+
+export class GenericGroupComparison {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    label(index: number): string | undefined;
+    observation_counts(): BigUint64Array;
+    values(): Float64Array;
+    readonly group_count: number;
+}
+
+export class GenericNumericSummary {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    readonly count: number;
+    readonly maximum: number;
+    readonly mean: number;
+    readonly median: number;
+    readonly minimum: number;
+    readonly q1: number;
+    readonly q3: number;
+    readonly standard_deviation: number;
+}
+
+export class GenericTrendInput {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    epoch_milliseconds(): BigInt64Array;
+    series_indexes(): Uint32Array;
+    series_name(index: number): string | undefined;
+    values(): Float64Array;
+    readonly row_count: number;
+    readonly series_count: number;
+}
+
 export class HistogramData {
     private constructor();
     free(): void;
@@ -166,6 +286,20 @@ export class TimeSeriesVerification {
  * Returns a JavaScript error when the stream or bounded workspace configuration is invalid.
  */
 export function build_exploration_workspace(bytes: Uint8Array, day_count: number, bin_count: number, bucket_minimum: number, bucket_width: number, cardinality_0: number, cardinality_1: number, cardinality_2: number): ExplorationWorkspace;
+
+/**
+ * Decodes an `analytical_table/v1` Arrow stream using semantic role keys.
+ *
+ * The minimum browser boundary accepts one required measure, one optional
+ * secondary measure, one optional time role, and one optional dimension.
+ * Additional core roles can be introduced without changing the Arrow decoder.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when role keys are invalid or the Arrow data
+ * violates the generic analytical-table safety contract.
+ */
+export function decode_analytical_table_arrow(bytes: Uint8Array, time_column: string | null | undefined, primary_measure: string, secondary_measure?: string | null, dimension?: string | null): GenericAnalyticalTable;
 
 /**
  * Decodes a `categorical/v1` Arrow IPC stream.

@@ -19,6 +19,7 @@ const SCENARIOS: readonly ProbeScenario[] = [
     title: "Manchester yearly average price",
     request: {
       shape: "time_series",
+      dataset: "uk_price_paid",
       operation: "trend",
       metric: "average_price",
       interval: "year",
@@ -45,6 +46,7 @@ const SCENARIOS: readonly ProbeScenario[] = [
     title: "Leeds vs Bristol monthly volume",
     request: {
       shape: "time_series",
+      dataset: "uk_price_paid",
       operation: "comparison",
       metric: "transaction_count",
       interval: "month",

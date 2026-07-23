@@ -26,6 +26,16 @@ export type ArrowFingerprintError = {
   readonly cause: unknown;
 };
 
+export type AnalyticalArrowVerification = {
+  readonly rowCount: number;
+};
+
+export type AnalyticalArrowVerificationError = {
+  readonly type: "analytical_arrow_verification_error";
+  readonly message: string;
+  readonly cause: unknown;
+};
+
 export function fingerprintArrow(
   bytes: Uint8Array,
 ): Result<QueryFingerprint, ArrowFingerprintError> {
@@ -48,6 +58,40 @@ export function fingerprintArrow(
         cause instanceof Error
           ? cause.message
           : "Rust could not fingerprint the Arrow result",
+      cause,
+    });
+  }
+}
+
+export function verifyAnalyticalArrow(
+  bytes: Uint8Array,
+  roles: {
+    readonly time: string | null;
+    readonly measure: string;
+    readonly dimension: string | null;
+  },
+): Result<AnalyticalArrowVerification, AnalyticalArrowVerificationError> {
+  try {
+    const table = getLensNodeModule().decode_analytical_table_arrow(
+      bytes,
+      roles.time,
+      roles.measure,
+      undefined,
+      roles.dimension,
+    );
+
+    try {
+      return ok({ rowCount: table.row_count });
+    } finally {
+      table.free();
+    }
+  } catch (cause) {
+    return err({
+      type: "analytical_arrow_verification_error",
+      message:
+        cause instanceof Error
+          ? cause.message
+          : "Rust could not verify the analytical Arrow result",
       cause,
     });
   }

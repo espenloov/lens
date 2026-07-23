@@ -284,6 +284,25 @@ describe("toExecutableAnalysis", () => {
 
     expect(result.isErr()).toBe(true);
   });
+
+  it("pins a registered dataset version into the executable request", () => {
+    const result = toExecutableAnalysis(
+      {
+        ...trend,
+        dataset: "regional_sales",
+      },
+      {
+        dateFrom: "2010-01-01",
+        dateTo: "2025-12-31",
+        version: 4,
+      },
+    );
+
+    expect(result._unsafeUnwrap()).toMatchObject({
+      dataset: "regional_sales",
+      datasetVersion: 4,
+    });
+  });
 });
 
 describe("prepareAnalysis", () => {

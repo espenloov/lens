@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { datasetSlugSchema } from "../data-sources/contracts";
+
 export const analysisQuestionSchema = z.object({
   question: z.string().trim().min(3).max(1_000),
 });
@@ -83,7 +85,7 @@ export const analysisFiltersSchema = z
 
 const commonPlanShape = {
   version: z.literal(1),
-  dataset: z.literal("uk_price_paid"),
+  dataset: datasetSlugSchema,
   title: z.string().trim().min(1).max(100),
   explanation: z.string().trim().min(1).max(320),
   filters: analysisFiltersSchema,

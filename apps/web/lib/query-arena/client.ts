@@ -3,10 +3,9 @@
 import axios from "axios";
 import { ResultAsync } from "neverthrow";
 
-import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
-
 import {
   queryArenaStartResponseSchema,
+  type QueryArenaRequest,
   type QueryArenaSnapshot,
 } from "./contracts";
 
@@ -28,9 +27,9 @@ function toClientError(cause: unknown): QueryArenaClientError {
   };
 }
 
-export function startQueryArena(request: TimeSeriesRequest) {
+export function startQueryArena(analysis: QueryArenaRequest) {
   return ResultAsync.fromPromise(
-    axios.post<unknown>("/api/query-arena", { request }),
+    axios.post<unknown>("/api/query-arena", { analysis }),
     toClientError,
   ).andThen((response) =>
     ResultAsync.fromPromise(

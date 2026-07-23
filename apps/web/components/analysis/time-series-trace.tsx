@@ -13,16 +13,12 @@ import type { TimeSeriesLoadResult } from "@/lib/time-series/load";
 import { supportsQueryArena } from "@/lib/query-arena/signature";
 
 import {
-  formatBytes,
   formatCompactCount,
   formatCompactPrice,
-  formatComputeDuration,
   formatCount,
-  formatDuration,
   formatPrice,
 } from "./formatters";
-import { QueryArenaCard } from "./query-arena-card";
-import { ExecutionStory } from "./execution-story";
+import { AnalysisEvidenceLink } from "./analysis-evidence-link";
 import { InsightHeader } from "./insight-header";
 
 type TimeSeriesTraceProps = {
@@ -141,7 +137,6 @@ export function TimeSeriesTrace({
 }: TimeSeriesTraceProps) {
   const { columns } = loaded;
   const derived = loaded.derived;
-  const { performance } = loaded;
   const periods = useMemo(
     () => uniquePeriods(columns.periodStarts),
     [columns.periodStarts],
@@ -310,6 +305,21 @@ export function TimeSeriesTrace({
       percentage,
     };
   })();
+  const primaryRows = rowsBySeries[0] ?? [];
+  const firstRow = primaryRows[0];
+  const lastRow = primaryRows.at(-1);
+  const rangeChange =
+    firstRow === undefined ||
+    lastRow === undefined ||
+    displayValues[firstRow] === 0
+      ? null
+      : ((displayValues[lastRow] - displayValues[firstRow]) /
+          Math.abs(displayValues[firstRow])) *
+        100;
+  const peakRow = [...visibleRows].sort(
+    (left, right) =>
+      Math.abs(displayValues[right]) - Math.abs(displayValues[left]),
+  )[0];
 
   return (
     <article className="space-y-3">
@@ -319,7 +329,7 @@ export function TimeSeriesTrace({
         aria-describedby={descriptionId}
         className="analysis-tile col-span-12 p-4 lg:col-span-8"
       >
-        <div className="border-b border-[#09265b]/8 pb-3">
+        <div className="border-b border-[var(--line)] pb-3">
           <InsightHeader
             descriptionId={descriptionId}
             eyebrow={
@@ -522,10 +532,10 @@ export function TimeSeriesTrace({
 
       <aside className="col-span-12 grid gap-4 lg:col-span-4">
         <section className="analysis-tile p-4">
-          <p className="text-xs font-medium text-[#66758e]">Key finding</p>
-          <p className="mt-2 text-xl font-semibold leading-6 tracking-[-0.025em] text-[#09265b]">
+          <p className="text-xs font-medium text-[var(--ink-tertiary)]">Key finding</p>
+          <p className="mt-2 text-xl font-semibold leading-6 tracking-[-0.025em] text-[var(--ink)]">
             {comparison === null
-              ? `${columns.seriesNames.length} series across ${formatCount(periods.length)} periods`
+              ? explanation
               : comparison.equal
                 ? `${comparison.leftName} and ${comparison.rightName} are equal in the selected period.`
                 : `${comparison.higherName} leads ${comparison.lowerName} by ${formatMetric(comparison.difference, request.metric, false, displaysPercent)}${comparison.percentage === null ? "" : ` (${comparison.percentage.toFixed(1)}%)`}.`}
@@ -533,12 +543,12 @@ export function TimeSeriesTrace({
         </section>
 
         <section className="analysis-tile p-4">
-          <p className="text-xs font-medium text-[#66758e]">{formatPeriod(selectedPeriod, request.interval)}</p>
+          <p className="text-xs font-medium text-[var(--ink-tertiary)]">{formatPeriod(selectedPeriod, request.interval)}</p>
           <div className="mt-3 space-y-2">
             {selectedRows.map((row) => (
-              <div className="flex items-end justify-between gap-4 border-b border-[#09265b]/8 pb-3" key={columns.seriesIndexes[row]}>
-                <span className="text-sm text-[#596983]">{columns.seriesNames[columns.seriesIndexes[row]]}</span>
-                <span className="text-xl font-semibold tabular-nums text-[#09265b]">
+              <div className="flex items-end justify-between gap-4 border-b border-[var(--line)] pb-3" key={columns.seriesIndexes[row]}>
+                <span className="text-sm text-[var(--ink-secondary)]">{columns.seriesNames[columns.seriesIndexes[row]]}</span>
+                <span className="text-xl font-semibold tabular-nums text-[var(--ink)]">
                   {formatMetric(displayValues[row], request.metric, false, displaysPercent)}
                 </span>
               </div>
@@ -547,41 +557,32 @@ export function TimeSeriesTrace({
         </section>
 
         <section className="analysis-tile grid grid-cols-2 gap-4 p-4">
-          <div><p className="text-xs text-[#66758e]">Periods</p><p className="mt-2 text-xl font-semibold tabular-nums text-[#09265b]">{formatCount(periods.length)}</p></div>
-          <div><p className="text-xs text-[#66758e]">Typed rows</p><p className="mt-2 text-xl font-semibold tabular-nums text-[#09265b]">{formatCount(columns.rowCount)}</p></div>
+          <div>
+            <p className="text-xs text-[var(--ink-tertiary)]">Change over range</p>
+            <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
+              {rangeChange === null
+                ? "—"
+                : `${rangeChange >= 0 ? "+" : ""}${rangeChange.toFixed(1)}%`}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--ink-tertiary)]">
+              {peakRow === undefined
+                ? "Peak period"
+                : `Peak · ${columns.seriesNames[columns.seriesIndexes[peakRow]]}`}
+            </p>
+            <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
+              {peakRow === undefined
+                ? "—"
+                : formatPeriod(columns.periodStarts[peakRow], request.interval)}
+            </p>
+          </div>
         </section>
       </aside>
 
-      <ExecutionStory
-        metrics={[
-          { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
-          { label: "Typed rows", value: formatCount(columns.rowCount) },
-          { label: "Round trip", value: formatDuration(performance.roundTripMs) },
-          {
-            label: "WASM startup",
-            value: performance.wasmWasReady
-              ? "preloaded"
-              : formatComputeDuration(performance.wasmStartupWaitMs),
-          },
-          { label: "Rust decode", value: formatComputeDuration(performance.rustDecodeMs) },
-          {
-            label: "Rust analysis",
-            value:
-              loaded.derived === null
-                ? "not needed"
-                : formatComputeDuration(performance.rustTransformMs),
-          },
-        ]}
-        queryId={loaded.queryId}
-        summary="Durable agent · columnar query · typed Arrow · local Rust analysis"
+      <AnalysisEvidenceLink
+        optimizationAvailable={supportsQueryArena(request)}
       />
-
-      {supportsQueryArena(request) && (
-        <QueryArenaCard
-          currentStrategy={loaded.strategy}
-          request={request}
-        />
-      )}
 
       <details className="sr-only">
         <summary className="cursor-pointer text-sm font-medium text-slate-700">

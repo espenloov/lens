@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { IBM_Plex_Mono, Manrope } from "next/font/google";
 
 import { QueryProvider } from "@/components/query-provider";
 
 import "./globals.css";
 
-const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
@@ -17,9 +17,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lens · Property intelligence",
+  title: "Lens · Data, brought into focus",
   description:
-    "Conversational analysis across nearly 29 million UK property transactions.",
+    "Conversational analysis that turns large ClickHouse datasets into interactive dashboards.",
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <QueryProvider>{children}</QueryProvider>

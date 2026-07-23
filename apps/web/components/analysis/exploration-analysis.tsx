@@ -8,6 +8,8 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { useAnalysisPerformance } from "@/components/analysis/performance-context";
+import { DashboardAssembly } from "@/components/dashboard-assembly";
 import type { AnalysisPlan } from "@/lib/analysis/contracts";
 import {
   explorationDateAt,
@@ -23,13 +25,8 @@ import type {
   ExplorationFrame,
 } from "@/lib/wasm/exploration-types";
 
-import {
-  formatBytes,
-  formatCount,
-  formatDuration,
-  formatPrice,
-} from "./formatters";
-import { ExecutionStory } from "./execution-story";
+import { formatCount, formatPrice } from "./formatters";
+import { AnalysisEvidenceLink } from "./analysis-evidence-link";
 import { InsightHeader } from "./insight-header";
 
 type ExplorationAnalysisProps = {
@@ -257,41 +254,6 @@ function DensityRiver({
   );
 }
 
-function PerformanceEvidence({
-  loaded,
-  localUpdates,
-  localQueryMs,
-}: {
-  readonly loaded: ExplorationLoadResult;
-  readonly localUpdates: number;
-  readonly localQueryMs: number;
-}) {
-  const metrics = [
-    { label: "Typed transactions", value: formatCount(loaded.sourceRows) },
-    { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
-    { label: "Round trip", value: formatDuration(loaded.roundTripMs) },
-    { label: "Rust index build", value: `${loaded.rustBuildMs.toFixed(1)} ms` },
-    {
-      label: "Local Rust update",
-      value: localQueryMs < 0.1 ? "<0.1 ms" : `${localQueryMs.toFixed(2)} ms`,
-    },
-    { label: "Local index", value: formatBytes(loaded.metadata.indexBytes) },
-    { label: "Local updates", value: formatCount(localUpdates) },
-    {
-      label: "Requests after load",
-      value: String(Math.max(loaded.analysisApiRequests - 1, 0)),
-    },
-  ] as const;
-
-  return (
-    <ExecutionStory
-      metrics={metrics}
-      queryId={loaded.queryId}
-      summary={`${formatCount(loaded.sourceRows)} rows loaded once · ${formatCount(localUpdates)} local updates · 0 return trips`}
-    />
-  );
-}
-
 function Workspace({
   loaded,
   plan,
@@ -307,8 +269,6 @@ function Workspace({
   const [filters, setFilters] = useState<ExplorationFilters>([null, null, null]);
   const [frame, setFrame] = useState(loaded.frame);
   const [summary, setSummary] = useState(loaded.summary);
-  const [localQueryMs, setLocalQueryMs] = useState(loaded.rustQueryMs);
-  const [localUpdates, setLocalUpdates] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
   const sequence = useRef(0);
   const frameFilters = useRef<ExplorationFilters>([null, null, null]);
@@ -354,8 +314,6 @@ function Workspace({
         }
 
         setSummary(result.summary);
-        setLocalQueryMs(result.rustQueryMs);
-        setLocalUpdates((count) => count + 1);
 
         if (result.frame !== null) {
           setFrame(result.frame);
@@ -393,7 +351,7 @@ function Workspace({
   const primaryMaximum = Math.max(...primaryCounts, 1);
 
   return (
-    <article className="space-y-3">
+    <article className="dashboard-revealing space-y-3">
       {inactiveReason !== null && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900" role="status">
           {inactiveReason}. This snapshot remains visible, but its local controls are inactive.
@@ -522,7 +480,7 @@ function Workspace({
           </div>
         </section>
 
-        <PerformanceEvidence loaded={loaded} localQueryMs={localQueryMs} localUpdates={localUpdates} />
+        <AnalysisEvidenceLink />
 
       <details className="sr-only">
         <summary className="cursor-pointer text-sm font-medium">Accessible selected-window data</summary>
@@ -555,6 +513,7 @@ export function ExplorationAnalysis({
   plan,
   request,
 }: ExplorationAnalysisProps) {
+  const { failAnalysis, reportAnalysis } = useAnalysisPerformance();
   const query = useQuery({
     queryKey: ["exploration", request],
     queryFn: async ({ signal }) => loadExploration(request, signal),
@@ -565,12 +524,47 @@ export function ExplorationAnalysis({
     refetchOnReconnect: false,
   });
 
+  useEffect(() => {
+    if (query.data?.isOk() !== true) {
+      return;
+    }
+
+    const loaded = query.data.value;
+    reportAnalysis({
+      title: plan.title,
+      kind: "exploration",
+      queryId: loaded.queryId,
+      contract: "exploration/v1",
+      arrowBytes: loaded.arrowBytes,
+      typedRows: loaded.sourceRows,
+      roundTripMs: loaded.roundTripMs,
+      wasmStartupMs: loaded.wasmStartupMs,
+      rustDecodeMs: loaded.rustBuildMs,
+      rustComputeMs: loaded.rustQueryMs,
+    });
+  }, [plan.title, query.data, reportAnalysis]);
+
+  useEffect(() => {
+    if (query.isError) {
+      failAnalysis("clickhouse", "The exploration request failed unexpectedly.");
+      return;
+    }
+
+    if (query.data?.isErr() === true) {
+      const stage = /worker|wasm|webassembly|memory/i.test(
+        query.data.error.message,
+      )
+        ? "rust"
+        : "clickhouse";
+      failAnalysis(stage, query.data.error.message);
+    }
+  }, [failAnalysis, query.data, query.isError]);
+
   if (query.isPending) {
     return (
-      <section aria-live="polite" className="glass-panel-strong space-y-4 rounded-[1.75rem] p-6 sm:p-8">
-        <p className="text-sm font-medium text-slate-700">Building a local Rust workspace from Arrow…</p>
-        <div className="glass-inset h-80 animate-pulse rounded-[1.4rem]" />
-      </section>
+      <div className="h-full min-h-[24rem]">
+        <DashboardAssembly settling={false} />
+      </div>
     );
   }
 
