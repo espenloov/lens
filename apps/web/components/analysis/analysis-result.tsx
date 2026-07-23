@@ -13,10 +13,10 @@ export function AnalysisResult({ output }: AnalysisResultProps) {
     return (
       <section
         aria-label="Unsupported analysis"
-        className="space-y-2 border-y py-5"
+        className="glass-panel rounded-2xl p-5"
       >
-        <p className="text-sm font-medium">This analysis is not available yet.</p>
-        <p className="text-sm text-muted-foreground">{output.error.message}</p>
+        <p className="text-sm font-medium text-slate-800">This analysis is not available yet.</p>
+        <p className="mt-1 text-sm text-slate-500">{output.error.message}</p>
       </section>
     );
   }

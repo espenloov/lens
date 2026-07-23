@@ -28,6 +28,8 @@ import {
   formatDuration,
   formatPrice,
 } from "./formatters";
+import { ExecutionStory } from "./execution-story";
+import { InsightHeader } from "./insight-header";
 
 type GrammarAnalysisProps = {
   readonly plan: AnalysisPlan;
@@ -60,23 +62,50 @@ function CategoryView({
   readonly request: CategoricalRequest;
 }) {
   const maximum = Math.max(...frame.values, 1);
+  const strongestIndex = frame.values.reduce(
+    (best, value, index) => (value > frame.values[best] ? index : best),
+    0,
+  );
+  const findingLabel =
+    request.transform === "share"
+      ? "Largest market share"
+      : request.metric === "transaction_count"
+        ? "Most transactions"
+        : request.metric === "average_price"
+          ? "Highest average price"
+          : "Highest estimated median";
 
   return (
-    <div className="space-y-3">
-      {frame.categories.map((category, index) => (
-        <div className="grid grid-cols-[minmax(7rem,0.7fr)_2fr_auto] items-center gap-3" key={category}>
-          <span className="truncate text-sm font-medium">{category}</span>
-          <div className="h-8 overflow-hidden rounded-sm bg-muted">
-            <div
-              className="h-full bg-foreground transition-[width] duration-500 motion-reduce:transition-none"
-              style={{ width: `${Math.max(1, (frame.values[index] / maximum) * 100)}%` }}
-            />
-          </div>
-          <span className="min-w-20 text-right font-mono text-sm tabular-nums">
-            {formatValue(frame.values[index], request)}
-          </span>
+    <div>
+      <div className="metric-glass mb-6 flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-medium text-[#21a8a3]">
+            {findingLabel}
+          </p>
+          <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
+            {frame.categories[strongestIndex]}
+          </p>
         </div>
-      ))}
+        <p className="font-mono text-2xl font-medium tabular-nums text-slate-800">
+          {formatValue(frame.values[strongestIndex], request)}
+        </p>
+      </div>
+      <div className="space-y-3">
+        {frame.categories.map((category, index) => (
+          <div className="grid grid-cols-[minmax(7rem,0.7fr)_2fr_auto] items-center gap-3" key={category}>
+            <span className="truncate text-sm font-medium text-slate-700">{category}</span>
+            <div className="h-8 overflow-hidden rounded-full bg-white/45 shadow-inner shadow-slate-300/20">
+              <div
+                className="h-full rounded-full bg-[#1769df] transition-[width] duration-500 motion-reduce:transition-none"
+                style={{ width: `${(frame.values[index] / maximum) * 100}%` }}
+              />
+            </div>
+            <span className="min-w-20 text-right font-mono text-sm tabular-nums text-slate-700">
+              {formatValue(frame.values[index], request)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -92,33 +121,65 @@ function HistogramView({
   const overflowStart =
     (request.filters.minimumPrice ?? 0) +
     (request.maximumBins - 1) * request.bucketWidth;
+  const strongestRow = frame.values.reduce(
+    (best, value, index) => (value > frame.values[best] ? index : best),
+    0,
+  );
+  const strongestOverflow = frame.binStarts[strongestRow] === overflowStart;
+  const strongestLabel = strongestOverflow
+    ? `${formatPrice(frame.binStarts[strongestRow])}+`
+    : `${formatPrice(frame.binStarts[strongestRow])}–${formatPrice(frame.binEnds[strongestRow])}`;
 
   return (
-    <div className="space-y-2">
-      {Array.from({ length: frame.values.length }, (_, row) => {
-        const series = frame.seriesNames[frame.seriesIndexes[row]];
-        const overflow = frame.binStarts[row] === overflowStart;
-        const label = overflow
-          ? `${formatPrice(frame.binStarts[row])}+`
-          : `${formatPrice(frame.binStarts[row])}–${formatPrice(frame.binEnds[row])}`;
+    <div className="grid gap-6 lg:grid-cols-[minmax(13rem,0.36fr)_1fr]">
+      <div className="rounded-2xl bg-[#f3f7fc] p-5">
+        <div>
+          <p className="text-xs font-medium text-[#21a8a3]">
+            Most active price band
+          </p>
+          <p className="mt-3 text-xl font-semibold tracking-tight text-[#09265b]">
+            {strongestLabel}
+          </p>
+        </div>
+        <p className="mt-6 text-3xl font-semibold tabular-nums text-[#09265b]">
+          {formatValue(frame.values[strongestRow], request)}
+        </p>
+      </div>
+      <div className="min-w-0">
+        <div className="flex h-72 items-end gap-px border-b border-[#09265b]/10" aria-label="Price distribution histogram" role="img">
+          {Array.from({ length: frame.values.length }, (_, row) => {
+            const series = frame.seriesNames[frame.seriesIndexes[row]];
+            const overflow = frame.binStarts[row] === overflowStart;
+            const label = overflow
+              ? `${formatPrice(frame.binStarts[row])}+`
+              : `${formatPrice(frame.binStarts[row])}–${formatPrice(frame.binEnds[row])}`;
 
-        return (
-          <div className="grid grid-cols-[minmax(8rem,1fr)_2fr_auto] items-center gap-3" key={`${label}-${series}`}>
-            <span className="truncate text-xs text-muted-foreground">
-              {label}{frame.seriesNames.length > 1 ? ` · ${series}` : ""}
-            </span>
-            <div className="h-5 bg-muted">
+            return (
               <div
-                className="h-full bg-foreground"
-                style={{ width: `${Math.max(0.5, (frame.values[row] / maximum) * 100)}%` }}
+                className="min-w-0 flex-1 bg-[#1769df]"
+                key={`${label}-${series}`}
+                style={{ height: `${(frame.values[row] / maximum) * 100}%` }}
+                title={`${label}${frame.seriesNames.length > 1 ? ` · ${series}` : ""}: ${formatValue(frame.values[row], request)}`}
               />
-            </div>
-            <span className="font-mono text-xs tabular-nums">
-              {formatValue(frame.values[row], request, true)}
-            </span>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex justify-between text-xs text-[#66758e]">
+          <span>{formatPrice(frame.binStarts[0])}</span>
+          <span>{formatPrice(frame.binStarts.at(-1) ?? 0)}+</span>
+        </div>
+        <details className="mt-5 text-sm text-[#596983]">
+          <summary className="cursor-pointer font-medium text-[#1769df]">View price bands</summary>
+          <div className="mt-3 max-h-56 overflow-auto">
+            {Array.from({ length: frame.values.length }, (_, row) => (
+              <div className="flex justify-between border-b border-[#09265b]/8 py-2 text-xs" key={row}>
+                <span>{formatPrice(frame.binStarts[row])}{frame.binStarts[row] === overflowStart ? "+" : ""}</span>
+                <span className="tabular-nums">{formatValue(frame.values[row], request)}</span>
+              </div>
+            ))}
           </div>
-        );
-      })}
+        </details>
+      </div>
     </div>
   );
 }
@@ -141,9 +202,26 @@ function MatrixView({
     [frame],
   );
   const maximum = Math.max(...frame.values, 1);
+  const strongestRow = frame.values.reduce(
+    (best, value, index) => (value > frame.values[best] ? index : best),
+    0,
+  );
 
   return (
     <div className="space-y-4 overflow-x-auto">
+      <div className="metric-glass flex min-w-80 flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-medium text-[#21a8a3]">
+            Highest intersection
+          </p>
+          <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
+            {frame.xLabels[frame.xIndexes[strongestRow]]} · {frame.yLabels[frame.yIndexes[strongestRow]]}
+          </p>
+        </div>
+        <p className="font-mono text-2xl font-medium tabular-nums text-slate-800">
+          {formatValue(frame.values[strongestRow], request)}
+        </p>
+      </div>
       <div
         className="grid min-w-max gap-1"
         style={{ gridTemplateColumns: `8rem repeat(${frame.xLabels.length}, minmax(3.5rem, 1fr))` }}
@@ -165,9 +243,9 @@ function MatrixView({
 
             return (
               <div
-                className="grid aspect-square min-h-12 place-items-center rounded-sm border text-[11px] tabular-nums"
+                className="grid aspect-square min-h-12 place-items-center rounded-xl border border-white/65 text-[11px] tabular-nums shadow-sm"
                 key={`${xLabel}-${yLabel}`}
-                style={{ backgroundColor: `color-mix(in oklab, var(--foreground) ${intensity * 88}%, var(--background))`, color: intensity > 0.55 ? "var(--background)" : "var(--foreground)" }}
+                style={{ backgroundColor: `color-mix(in oklab, var(--trigger) ${intensity * 78}%, rgba(255,255,255,.48))`, color: intensity > 0.58 ? "white" : "var(--foreground)" }}
                 title={`${xLabel}, ${yLabel}: ${formatValue(value, request)}`}
               >
                 {row === undefined ? "—" : formatValue(value, request, true)}
@@ -207,24 +285,16 @@ function MatrixView({
 
 function PerformanceStrip({ loaded }: { readonly loaded: GrammarLoadResult }) {
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4">
-      <div className="bg-background p-3">
-        <dt className="text-xs text-muted-foreground">Arrow payload</dt>
-        <dd className="mt-1 font-mono text-sm">{formatBytes(loaded.arrowBytes)}</dd>
-      </div>
-      <div className="bg-background p-3">
-        <dt className="text-xs text-muted-foreground">Contract</dt>
-        <dd className="mt-1 font-mono text-sm">{loaded.arrowContract ?? "unknown"}</dd>
-      </div>
-      <div className="bg-background p-3">
-        <dt className="text-xs text-muted-foreground">Round trip</dt>
-        <dd className="mt-1 font-mono text-sm">{formatDuration(loaded.roundTripMs)}</dd>
-      </div>
-      <div className="bg-background p-3">
-        <dt className="text-xs text-muted-foreground">Rust decode</dt>
-        <dd className="mt-1 font-mono text-sm">{loaded.rustDecodeMs.toFixed(2)} ms</dd>
-      </div>
-    </dl>
+    <ExecutionStory
+      metrics={[
+        { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
+        { label: "Typed contract", value: loaded.arrowContract ?? "unknown" },
+        { label: "Round trip", value: formatDuration(loaded.roundTripMs) },
+        { label: "Rust decode", value: `${loaded.rustDecodeMs.toFixed(2)} ms` },
+      ]}
+      queryId={loaded.queryId}
+      summary="Trigger.dev plan · ClickHouse query · Arrow frame · Rust decode"
+    />
   );
 }
 
@@ -237,16 +307,16 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
 
   if (query.isPending) {
     return (
-      <section aria-live="polite" className="space-y-3 border-y py-8">
-        <p className="text-sm font-medium">Streaming a typed analysis frame…</p>
-        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+      <section aria-live="polite" className="glass-panel-strong space-y-4 rounded-[1.75rem] p-6 sm:p-8">
+        <p className="text-sm font-medium text-slate-700">Streaming a typed analysis frame…</p>
+        <div className="glass-inset h-64 animate-pulse rounded-[1.4rem]" />
       </section>
     );
   }
 
   if (query.isError || query.data.isErr()) {
     return (
-      <p className="border-y py-5 text-sm text-destructive" role="alert">
+      <p className="glass-panel rounded-2xl p-5 text-sm text-destructive" role="alert">
         The analysis frame could not be loaded.
       </p>
     );
@@ -256,7 +326,7 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
 
   if (loaded.frame.values.length === 0) {
     return (
-      <section className="space-y-2 border-y py-6">
+      <section className="glass-panel space-y-2 rounded-2xl p-6">
         <h2 className="text-xl font-medium">{plan.title}</h2>
         <p className="text-sm text-muted-foreground">
           No transactions matched this analysis.
@@ -266,16 +336,16 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   }
 
   return (
-    <article className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {plan.operation}
-        </p>
-        <h2 className="text-2xl font-medium tracking-tight">{plan.title}</h2>
-        <p className="max-w-3xl text-sm text-muted-foreground">{plan.explanation}</p>
-      </header>
-
-      <section className="rounded-xl border p-5">
+    <article className="space-y-3">
+      <div className="analysis-bento">
+      <section className="analysis-tile col-span-12 p-5 sm:p-7">
+        <div className="mb-5 border-b border-[#09265b]/8 pb-4">
+          <InsightHeader
+            eyebrow={plan.operation}
+            explanation={plan.explanation}
+            title={plan.title}
+          />
+        </div>
         {loaded.frame.kind === "categorical" && request.shape === "categorical" && (
           <CategoryView frame={loaded.frame} request={request} />
         )}
@@ -288,6 +358,7 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
       </section>
 
       <PerformanceStrip loaded={loaded} />
+      </div>
     </article>
   );
 }

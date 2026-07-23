@@ -29,6 +29,8 @@ import {
   formatDuration,
   formatPrice,
 } from "./formatters";
+import { ExecutionStory } from "./execution-story";
+import { InsightHeader } from "./insight-header";
 
 type ExplorationAnalysisProps = {
   readonly plan: AnalysisPlan;
@@ -75,7 +77,7 @@ function DensityRiver({
 
     const draw = () => {
       const width = Math.max(canvas.clientWidth, 320);
-      const height = 340;
+      const height = 198;
       const scale = window.devicePixelRatio || 1;
       canvas.width = Math.round(width * scale);
       canvas.height = Math.round(height * scale);
@@ -86,7 +88,7 @@ function DensityRiver({
       }
 
       context.setTransform(scale, 0, 0, scale, 0, 0);
-      context.fillStyle = "#07111f";
+      context.fillStyle = "rgba(241, 246, 255, 0.72)";
       context.fillRect(0, 0, width, height);
       const maximum = Math.max(...frame.densityCounts, 1);
       const cellWidth = width / dayCount;
@@ -101,7 +103,7 @@ function DensityRiver({
           }
 
           const intensity = Math.log1p(count) / Math.log1p(maximum);
-          context.fillStyle = `rgba(34, 211, 238, ${0.06 + intensity * 0.9})`;
+          context.fillStyle = `rgba(99, 102, 241, ${0.035 + intensity * 0.76})`;
           context.fillRect(
             day * cellWidth,
             height - (bin + 1) * cellHeight,
@@ -126,10 +128,10 @@ function DensityRiver({
 
         const top = valueToY(q3);
         const bottom = valueToY(q1);
-        context.fillStyle = "rgba(251, 113, 133, 0.16)";
+        context.fillStyle = "rgba(245, 196, 0, 0.18)";
         context.fillRect(day * cellWidth, top, Math.max(cellWidth, 1), bottom - top);
       }
-      context.strokeStyle = "rgba(251, 113, 133, 0.9)";
+      context.strokeStyle = "rgba(240, 111, 79, 0.92)";
       context.lineWidth = 2;
       context.beginPath();
       let medianStarted = false;
@@ -156,11 +158,11 @@ function DensityRiver({
       context.stroke();
       const selectionStart = (startDay / dayCount) * width;
       const selectionEnd = ((endDay + 1) / dayCount) * width;
-      context.fillStyle = "rgba(2, 6, 23, 0.62)";
+      context.fillStyle = "rgba(226, 232, 248, 0.66)";
       context.fillRect(0, 0, selectionStart, height);
       context.fillRect(selectionEnd, 0, width - selectionEnd, height);
-      context.strokeStyle = "rgba(255, 255, 255, 0.85)";
-      context.lineWidth = 1;
+      context.strokeStyle = "rgba(99, 102, 241, 0.8)";
+      context.lineWidth = 1.5;
       context.strokeRect(selectionStart, 0.5, selectionEnd - selectionStart, height - 1);
     };
 
@@ -233,7 +235,7 @@ function DensityRiver({
     <div className="relative">
       <canvas
         aria-label={`Transaction density by day and ${formatPrice(request.bucketWidth)} value band. The coral ribbon is the estimated interquartile range and the line is the estimated daily median. Use the range controls below to select dates.`}
-        className="h-[340px] w-full touch-none cursor-crosshair rounded-xl border"
+        className="h-[198px] w-full touch-none cursor-crosshair rounded-[1.25rem] border border-white/75 shadow-inner shadow-indigo-950/5"
         onLostPointerCapture={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onPointerDown={handlePointerDown}
@@ -242,13 +244,13 @@ function DensityRiver({
         ref={canvasRef}
         role="img"
       />
-      <span className="pointer-events-none absolute left-2 top-2 rounded bg-slate-950/70 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">
+      <span className="pointer-events-none absolute left-3 top-3 rounded bg-white/80 px-2 py-1 text-xs tabular-nums text-[#596983]">
         {formatPrice(overflowStart)}+
       </span>
-      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded bg-slate-950/70 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 rounded bg-white/80 px-2 py-1 text-xs tabular-nums text-[#596983]">
         {formatPrice((request.bucketMinimum + overflowStart) / 2)}
       </span>
-      <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-slate-950/70 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">
+      <span className="pointer-events-none absolute bottom-3 left-3 rounded bg-white/80 px-2 py-1 text-xs tabular-nums text-[#596983]">
         {formatPrice(request.bucketMinimum)}
       </span>
     </div>
@@ -265,28 +267,28 @@ function PerformanceEvidence({
   readonly localQueryMs: number;
 }) {
   const metrics = [
-    ["Typed transactions", formatCount(loaded.sourceRows)],
-    ["Arrow payload", formatBytes(loaded.arrowBytes)],
-    ["Round trip", formatDuration(loaded.roundTripMs)],
-    ["Rust index build", `${loaded.rustBuildMs.toFixed(1)} ms`],
-    ["Local Rust update", `${localQueryMs.toFixed(2)} ms`],
-    ["Local index", formatBytes(loaded.metadata.indexBytes)],
-    ["Local updates", formatCount(localUpdates)],
-    [
-      "Exploration requests after load",
-      String(Math.max(loaded.analysisApiRequests - 1, 0)),
-    ],
+    { label: "Typed transactions", value: formatCount(loaded.sourceRows) },
+    { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
+    { label: "Round trip", value: formatDuration(loaded.roundTripMs) },
+    { label: "Rust index build", value: `${loaded.rustBuildMs.toFixed(1)} ms` },
+    {
+      label: "Local Rust update",
+      value: localQueryMs < 0.1 ? "<0.1 ms" : `${localQueryMs.toFixed(2)} ms`,
+    },
+    { label: "Local index", value: formatBytes(loaded.metadata.indexBytes) },
+    { label: "Local updates", value: formatCount(localUpdates) },
+    {
+      label: "Requests after load",
+      value: String(Math.max(loaded.analysisApiRequests - 1, 0)),
+    },
   ] as const;
 
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-4">
-      {metrics.map(([label, value]) => (
-        <div className="bg-background p-3" key={label}>
-          <dt className="text-xs text-muted-foreground">{label}</dt>
-          <dd className="mt-1 font-mono text-sm tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <ExecutionStory
+      metrics={metrics}
+      queryId={loaded.queryId}
+      summary={`${formatCount(loaded.sourceRows)} rows loaded once · ${formatCount(localUpdates)} local updates · 0 return trips`}
+    />
   );
 }
 
@@ -391,110 +393,12 @@ function Workspace({
   const primaryMaximum = Math.max(...primaryCounts, 1);
 
   return (
-    <article className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-500">
-          Local analytical workspace
+    <article className="space-y-3">
+      {inactiveReason !== null && (
+        <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900" role="status">
+          {inactiveReason}. This snapshot remains visible, but its local controls are inactive.
         </p>
-        <h2 className="text-2xl font-medium tracking-tight">{plan.title}</h2>
-        <p className="max-w-3xl text-sm text-muted-foreground">{plan.explanation}</p>
-      </header>
-
-      <section className="space-y-4 rounded-2xl border bg-card p-4 sm:p-6">
-        {inactiveReason !== null && (
-          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="status">
-            {inactiveReason}. This snapshot remains visible, but its local controls are inactive.
-          </p>
-        )}
-        <fieldset className="contents" disabled={inactiveReason !== null}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium">Value-density river</p>
-            <p className="text-xs text-muted-foreground">
-              One cell per day and price band · coral shows estimated median
-            </p>
-          </div>
-          <p className="font-mono text-sm tabular-nums">
-            {formatDate(startDate)} — {formatDate(endDate)}
-          </p>
-        </div>
-
-        <DensityRiver
-          endDay={endDay}
-          disabled={inactiveReason !== null}
-          frame={frame}
-          onWindowChange={updateWindow}
-          request={request}
-          startDay={startDay}
-        />
-
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <span>{formatDate(explorationDateAt(request, 0))}</span>
-          <span className="flex items-center gap-2">
-            Lower density
-            <span className="h-2 w-24 rounded-full bg-gradient-to-r from-cyan-950 via-cyan-600 to-cyan-200" />
-            Higher density
-          </span>
-          <span>{formatDate(explorationDateAt(request, loaded.metadata.dayCount - 1))}</span>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-xs text-muted-foreground">
-            Start: {formatDate(startDate)}
-            <input
-              className="w-full accent-cyan-500"
-              max={endDay}
-              min={0}
-              onChange={(event) => updateWindow(Number(event.target.value), endDay)}
-              type="range"
-              value={startDay}
-            />
-          </label>
-          <label className="space-y-1 text-xs text-muted-foreground">
-            End: {formatDate(endDate)}
-            <input
-              className="w-full accent-cyan-500"
-              max={loaded.metadata.dayCount - 1}
-              min={startDay}
-              onChange={(event) => updateWindow(startDay, Number(event.target.value))}
-              type="range"
-              value={endDay}
-            />
-          </label>
-        </div>
-
-        <div className="space-y-3">
-          {dimensions.map((dimension, dimensionIndex) =>
-            dimension.key === null ? null : (
-              <fieldset className="flex flex-wrap items-center gap-2" key={dimension.key}>
-                <legend className="mr-2 text-xs font-medium text-muted-foreground">
-                  {dimension.label}
-                </legend>
-                <button
-                  aria-pressed={filters[dimensionIndex] === null}
-                  className="rounded-full border px-3 py-1 text-xs aria-pressed:bg-foreground aria-pressed:text-background"
-                  onClick={() => updateFilter(dimensionIndex, null)}
-                  type="button"
-                >
-                  All
-                </button>
-                {dimension.values.map((value) => (
-                  <button
-                    aria-pressed={filters[dimensionIndex] === value.code}
-                    className="rounded-full border px-3 py-1 text-xs aria-pressed:bg-foreground aria-pressed:text-background"
-                    key={value.code}
-                    onClick={() => updateFilter(dimensionIndex, value.code)}
-                    type="button"
-                  >
-                    {value.label}
-                  </button>
-                ))}
-              </fieldset>
-            ),
-          )}
-        </div>
-        </fieldset>
-      </section>
+      )}
 
       {localError !== null && <p className="text-sm text-destructive" role="alert">{localError}</p>}
 
@@ -504,71 +408,123 @@ function Workspace({
           : `${formatCount(summary.totalCount)} transactions from ${formatDate(startDate)} to ${formatDate(endDate)}.`}
       </p>
 
-      {summary.totalCount === 0 && (
-        <p className="rounded-xl border p-4 text-sm text-muted-foreground">
-          No transactions match this time window and category selection.
-        </p>
-      )}
-
-      <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          ["Transactions", formatCount(summary.totalCount)],
-          ["Average", summary.totalCount === 0 ? "—" : formatPrice(summary.averageValue)],
-          ["Estimated P25", summary.totalCount === 0 ? "—" : formatPrice(summary.q1)],
-          ["Estimated median", summary.totalCount === 0 ? "—" : formatPrice(summary.median)],
-          ["Estimated P75", summary.totalCount === 0 ? "—" : formatPrice(summary.q3)],
-          ["Estimated outliers", summary.totalCount === 0 ? "—" : formatCount(summary.estimatedOutlierCount)],
-        ].map(([label, value]) => (
-          <div className="rounded-xl border p-3" key={label}>
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="mt-1 font-mono text-sm tabular-nums">{value}</p>
+      <div className="analysis-bento">
+        <section className="analysis-tile col-span-12 p-5 sm:p-7 lg:col-span-8">
+          <div className="border-b border-[#09265b]/8 pb-4">
+            <InsightHeader
+              eyebrow="Local analytical workspace"
+              explanation={plan.explanation}
+              title={plan.title}
+            />
           </div>
-        ))}
-      </section>
+          <div className="mb-4 mt-4">
+            <h3 className="text-base font-semibold text-[#09265b]">Price density through time</h3>
+            <p className="mt-1 text-xs text-[#66758e]">Drag across the chart to select a window. Coral marks the estimated median.</p>
+          </div>
+          <DensityRiver
+            endDay={endDay}
+            disabled={inactiveReason !== null}
+            frame={frame}
+            onWindowChange={updateWindow}
+            request={request}
+            startDay={startDay}
+          />
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-[#66758e]">
+            <span>{formatDate(explorationDateAt(request, 0))}</span>
+            <span>Low density — High density</span>
+            <span>{formatDate(explorationDateAt(request, loaded.metadata.dayCount - 1))}</span>
+          </div>
+        </section>
 
-      <section className="grid gap-6 rounded-xl border p-5 lg:grid-cols-[2fr_1fr]">
-        <div>
-          <h3 className="text-sm font-medium">Selected price distribution</h3>
-          <div className="mt-4 flex h-36 items-end gap-px" aria-hidden="true">
+        <aside className="col-span-12 grid gap-4 lg:col-span-4">
+          <section className="analysis-tile p-5 sm:p-6">
+            <p className="text-xs font-medium text-[#66758e]">Selected window</p>
+            <p className="mt-2 text-lg font-semibold tabular-nums text-[#09265b]">
+              {formatDate(startDate)} — {formatDate(endDate)}
+            </p>
+            <details className="mt-4 border-t border-[#09265b]/8 pt-3">
+              <summary className="cursor-pointer text-xs font-medium text-[#1769df]">Precise date controls</summary>
+              <div className="mt-4 space-y-3">
+                <label className="block text-xs text-[#66758e]">
+                  Start: {formatDate(startDate)}
+                  <input className="mt-1 w-full accent-[#1769df]" disabled={inactiveReason !== null} max={endDay} min={0} onChange={(event) => updateWindow(Number(event.target.value), endDay)} type="range" value={startDay} />
+                </label>
+                <label className="block text-xs text-[#66758e]">
+                  End: {formatDate(endDate)}
+                  <input className="mt-1 w-full accent-[#1769df]" disabled={inactiveReason !== null} max={loaded.metadata.dayCount - 1} min={startDay} onChange={(event) => updateWindow(startDay, Number(event.target.value))} type="range" value={endDay} />
+                </label>
+              </div>
+            </details>
+          </section>
+
+          <section className="analysis-tile p-5 sm:p-6">
+            <h3 className="text-sm font-semibold text-[#09265b]">Refine locally</h3>
+            <div className="mt-4 space-y-4">
+              {dimensions.map((dimension, dimensionIndex) =>
+                dimension.key === null ? null : (
+                  <fieldset key={dimension.key}>
+                    <legend className="text-xs font-medium text-[#66758e]">{dimension.label}</legend>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button aria-pressed={filters[dimensionIndex] === null} className="rounded-lg border border-[#09265b]/10 px-2.5 py-1.5 text-xs text-[#596983] focus-visible:outline-2 focus-visible:outline-[#1769df] aria-pressed:border-[#21c5be] aria-pressed:bg-[#21c5be]/10 aria-pressed:text-[#09265b]" disabled={inactiveReason !== null} onClick={() => updateFilter(dimensionIndex, null)} type="button">All</button>
+                      {dimension.values.map((value) => (
+                        <button aria-pressed={filters[dimensionIndex] === value.code} className="rounded-lg border border-[#09265b]/10 px-2.5 py-1.5 text-xs text-[#596983] focus-visible:outline-2 focus-visible:outline-[#1769df] aria-pressed:border-[#21c5be] aria-pressed:bg-[#21c5be]/10 aria-pressed:text-[#09265b]" disabled={inactiveReason !== null} key={value.code} onClick={() => updateFilter(dimensionIndex, value.code)} type="button">{value.label}</button>
+                      ))}
+                    </div>
+                  </fieldset>
+                ),
+              )}
+            </div>
+          </section>
+
+          <section className="grid grid-cols-2 gap-4">
+            <div className="analysis-tile p-5">
+              <p className="text-xs text-[#66758e]">Transactions</p>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-[#09265b]">{formatCount(summary.totalCount)}</p>
+            </div>
+            <div className="analysis-tile p-5">
+              <p className="text-xs text-[#66758e]">Average price</p>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-[#09265b]">{summary.totalCount === 0 ? "—" : formatPrice(summary.averageValue)}</p>
+            </div>
+          </section>
+        </aside>
+
+        {summary.totalCount === 0 && (
+          <p className="analysis-tile col-span-12 p-5 text-sm text-[#66758e]">No transactions match this selection.</p>
+        )}
+
+        <section className="analysis-tile col-span-12 p-5 sm:p-7 lg:col-span-7">
+          <h3 className="text-sm font-semibold text-[#09265b]">Selected price distribution</h3>
+          <div className="mt-4 flex h-20 items-end gap-px" aria-hidden="true">
             {Array.from(summary.histogramCounts, (count, bin) => (
-              <div
-                className="min-w-0 flex-1 bg-cyan-500/80"
-                key={bin}
-                style={{
-                  height: count === 0 ? "0" : `${(count / Math.max(...summary.histogramCounts, 1)) * 100}%`,
-                }}
-              />
+              <div className="min-w-0 flex-1 bg-[#1769df]" key={bin} style={{ height: count === 0 ? "0" : `${(count / Math.max(...summary.histogramCounts, 1)) * 100}%` }} />
             ))}
           </div>
-        </div>
-        <div>
-          <h3 className="text-sm font-medium">{dimensions[0].label} mix</h3>
-          <div className="mt-4 space-y-3">
+        </section>
+
+        <section className="analysis-tile col-span-12 p-5 sm:p-7 lg:col-span-5">
+          <h3 className="text-sm font-semibold text-[#09265b]">{dimensions[0].label} mix</h3>
+          <div className="mt-5 space-y-4">
             {dimensions[0].values.map((value) => (
-              <div className="space-y-1" key={value.code}>
-                <div className="flex justify-between text-xs">
+              <div key={value.code}>
+                <div className="flex justify-between text-xs text-[#596983]">
                   <span>{value.label}</span>
-                  <span className="font-mono">{formatCount(primaryCounts[value.code] ?? 0)}</span>
+                  <span className="tabular-nums">{formatCount(primaryCounts[value.code] ?? 0)}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-rose-400"
-                    style={{ width: `${((primaryCounts[value.code] ?? 0) / primaryMaximum) * 100}%` }}
-                  />
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7eef6]">
+                  <div className="h-full rounded-full bg-[#21c5be]" style={{ width: `${((primaryCounts[value.code] ?? 0) / primaryMaximum) * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[#09265b]/8 pt-5">
+            <div><p className="text-xs text-[#66758e]">Estimated median</p><p className="mt-2 text-lg font-semibold tabular-nums text-[#09265b]">{summary.totalCount === 0 ? "—" : formatPrice(summary.median)}</p></div>
+            <div><p className="text-xs text-[#66758e]">Estimated outliers</p><p className="mt-2 text-lg font-semibold tabular-nums text-[#09265b]">{summary.totalCount === 0 ? "—" : formatCount(summary.estimatedOutlierCount)}</p></div>
+          </div>
+        </section>
 
-      <PerformanceEvidence
-        loaded={loaded}
-        localQueryMs={localQueryMs}
-        localUpdates={localUpdates}
-      />
+        <PerformanceEvidence loaded={loaded} localQueryMs={localQueryMs} localUpdates={localUpdates} />
 
-      <details className="rounded-xl border p-4">
+      <details className="sr-only">
         <summary className="cursor-pointer text-sm font-medium">Accessible selected-window data</summary>
         <table className="mt-4 w-full text-left text-sm">
           <thead>
@@ -590,6 +546,7 @@ function Workspace({
           </tbody>
         </table>
       </details>
+      </div>
     </article>
   );
 }
@@ -610,16 +567,16 @@ export function ExplorationAnalysis({
 
   if (query.isPending) {
     return (
-      <section aria-live="polite" className="space-y-3 border-y py-8">
-        <p className="text-sm font-medium">Building a local Rust workspace from Arrow…</p>
-        <div className="h-80 animate-pulse rounded-xl bg-muted" />
+      <section aria-live="polite" className="glass-panel-strong space-y-4 rounded-[1.75rem] p-6 sm:p-8">
+        <p className="text-sm font-medium text-slate-700">Building a local Rust workspace from Arrow…</p>
+        <div className="glass-inset h-80 animate-pulse rounded-[1.4rem]" />
       </section>
     );
   }
 
   if (query.isError) {
     return (
-      <section className="space-y-2 border-y py-5" role="alert">
+      <section className="glass-panel space-y-2 rounded-2xl p-5" role="alert">
         <p className="text-sm font-medium">The exploration workspace could not be built.</p>
         <p className="text-sm text-muted-foreground">
           An unexpected error occurred.
@@ -630,7 +587,7 @@ export function ExplorationAnalysis({
 
   if (query.data.isErr()) {
     return (
-      <section className="space-y-2 border-y py-5" role="alert">
+      <section className="glass-panel space-y-2 rounded-2xl p-5" role="alert">
         <p className="text-sm font-medium">The exploration workspace could not be built.</p>
         <p className="text-sm text-muted-foreground">{query.data.error.message}</p>
       </section>
