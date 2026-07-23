@@ -25,18 +25,18 @@ export function TimeSeriesAnalysis({
 
   if (query.isPending) {
     return (
-      <section aria-live="polite" className="space-y-3 border-y py-8">
-        <p className="text-sm font-medium">
+      <section aria-live="polite" className="glass-panel-strong space-y-4 rounded-[1.75rem] p-6 sm:p-8">
+        <p className="text-sm font-medium text-slate-700">
           Waking ClickHouse and streaming Arrow data…
         </p>
-        <div className="h-56 animate-pulse rounded-lg bg-muted" />
+        <div className="glass-inset h-56 animate-pulse rounded-[1.4rem]" />
       </section>
     );
   }
 
   if (query.isError) {
     return (
-      <p className="border-y py-5 text-sm text-destructive" role="alert">
+      <p className="glass-panel rounded-2xl p-5 text-sm text-destructive" role="alert">
         The time-series pipeline failed unexpectedly.
       </p>
     );
@@ -44,7 +44,7 @@ export function TimeSeriesAnalysis({
 
   if (query.data.isErr()) {
     return (
-      <section className="space-y-2 border-y py-5" role="alert">
+      <section className="glass-panel space-y-2 rounded-2xl p-5" role="alert">
         <p className="text-sm font-medium">The analysis could not be loaded.</p>
         <p className="text-sm text-muted-foreground">
           {query.data.error.message}

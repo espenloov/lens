@@ -22,6 +22,8 @@ import {
   formatPrice,
 } from "./formatters";
 import { QueryArenaCard } from "./query-arena-card";
+import { ExecutionStory } from "./execution-story";
+import { InsightHeader } from "./insight-header";
 
 type TimeSeriesTraceProps = {
   readonly title: string;
@@ -204,7 +206,7 @@ export function TimeSeriesTrace({
     );
   }
 
-  const height = width < 480 ? 330 : 390;
+  const height = width < 480 ? 210 : 230;
   const margin = { top: 28, right: 18, bottom: 38, left: 64 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
@@ -310,29 +312,34 @@ export function TimeSeriesTrace({
   })();
 
   return (
-    <article className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {derived?.kind === "period_change_percent"
-            ? "Period change"
-            : derived?.kind === "share"
-              ? "Share of transactions"
-              : request.metric === "average_price"
-                ? "Average sale price"
-                : request.metric === "median_price"
-                  ? "Estimated median sale price"
-                  : "Transaction volume"}
-        </p>
-        <h2 className="text-2xl font-medium tracking-tight" id={titleId}>
-          {title}
-        </h2>
-        <p className="max-w-3xl text-sm text-muted-foreground" id={descriptionId}>
-          {explanation}
-        </p>
-      </header>
+    <article className="space-y-3">
+      <div className="analysis-bento">
+      <figure
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="analysis-tile col-span-12 p-4 lg:col-span-8"
+      >
+        <div className="border-b border-[#09265b]/8 pb-3">
+          <InsightHeader
+            descriptionId={descriptionId}
+            eyebrow={
+              derived?.kind === "period_change_percent"
+                ? "Period change"
+                : derived?.kind === "share"
+                  ? "Share of transactions"
+                  : request.metric === "average_price"
+                    ? "Average sale price"
+                    : request.metric === "median_price"
+                      ? "Estimated median sale price"
+                      : "Transaction volume"
+            }
+            explanation={explanation}
+            title={title}
+            titleId={titleId}
+          />
+        </div>
 
-      <figure aria-labelledby={titleId} aria-describedby={descriptionId}>
-        <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+        <div className="mb-2 mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
           {columns.seriesNames.map((series, index) => (
             <span className="inline-flex items-center gap-2" key={series}>
               <span
@@ -475,7 +482,7 @@ export function TimeSeriesTrace({
 
         <output
           aria-live="polite"
-          className="mt-3 block border-y py-3 text-sm tabular-nums"
+          className="sr-only"
           htmlFor={`${titleId}-period`}
         >
           <span className="font-medium">
@@ -513,58 +520,61 @@ export function TimeSeriesTrace({
         </output>
       </figure>
 
-      <section aria-label="Performance evidence" className="space-y-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Binary pipeline
-        </p>
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-6">
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Arrow payload</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {formatBytes(loaded.arrowBytes)}
-            </dd>
-          </div>
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Typed rows</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {formatCount(columns.rowCount)}
-            </dd>
-          </div>
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Round trip</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {formatDuration(performance.roundTripMs)}
-            </dd>
-          </div>
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">WASM startup</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {performance.wasmWasReady
-                ? "preloaded"
-                : formatComputeDuration(performance.wasmStartupWaitMs)}
-            </dd>
-          </div>
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Rust decode</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {formatComputeDuration(performance.rustDecodeMs)}
-            </dd>
-          </div>
-          <div className="bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Rust analysis</dt>
-            <dd className="mt-1 font-mono text-sm">
-              {loaded.derived === null
-                ? "not needed"
-                : formatComputeDuration(performance.rustTransformMs)}
-            </dd>
-          </div>
-        </dl>
-        {loaded.queryId !== null && (
-          <p className="truncate font-mono text-xs text-muted-foreground">
-            ClickHouse query {loaded.queryId}
+      <aside className="col-span-12 grid gap-4 lg:col-span-4">
+        <section className="analysis-tile p-4">
+          <p className="text-xs font-medium text-[#66758e]">Key finding</p>
+          <p className="mt-2 text-xl font-semibold leading-6 tracking-[-0.025em] text-[#09265b]">
+            {comparison === null
+              ? `${columns.seriesNames.length} series across ${formatCount(periods.length)} periods`
+              : comparison.equal
+                ? `${comparison.leftName} and ${comparison.rightName} are equal in the selected period.`
+                : `${comparison.higherName} leads ${comparison.lowerName} by ${formatMetric(comparison.difference, request.metric, false, displaysPercent)}${comparison.percentage === null ? "" : ` (${comparison.percentage.toFixed(1)}%)`}.`}
           </p>
-        )}
-      </section>
+        </section>
+
+        <section className="analysis-tile p-4">
+          <p className="text-xs font-medium text-[#66758e]">{formatPeriod(selectedPeriod, request.interval)}</p>
+          <div className="mt-3 space-y-2">
+            {selectedRows.map((row) => (
+              <div className="flex items-end justify-between gap-4 border-b border-[#09265b]/8 pb-3" key={columns.seriesIndexes[row]}>
+                <span className="text-sm text-[#596983]">{columns.seriesNames[columns.seriesIndexes[row]]}</span>
+                <span className="text-xl font-semibold tabular-nums text-[#09265b]">
+                  {formatMetric(displayValues[row], request.metric, false, displaysPercent)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="analysis-tile grid grid-cols-2 gap-4 p-4">
+          <div><p className="text-xs text-[#66758e]">Periods</p><p className="mt-2 text-xl font-semibold tabular-nums text-[#09265b]">{formatCount(periods.length)}</p></div>
+          <div><p className="text-xs text-[#66758e]">Typed rows</p><p className="mt-2 text-xl font-semibold tabular-nums text-[#09265b]">{formatCount(columns.rowCount)}</p></div>
+        </section>
+      </aside>
+
+      <ExecutionStory
+        metrics={[
+          { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
+          { label: "Typed rows", value: formatCount(columns.rowCount) },
+          { label: "Round trip", value: formatDuration(performance.roundTripMs) },
+          {
+            label: "WASM startup",
+            value: performance.wasmWasReady
+              ? "preloaded"
+              : formatComputeDuration(performance.wasmStartupWaitMs),
+          },
+          { label: "Rust decode", value: formatComputeDuration(performance.rustDecodeMs) },
+          {
+            label: "Rust analysis",
+            value:
+              loaded.derived === null
+                ? "not needed"
+                : formatComputeDuration(performance.rustTransformMs),
+          },
+        ]}
+        queryId={loaded.queryId}
+        summary="Durable agent · columnar query · typed Arrow · local Rust analysis"
+      />
 
       {supportsQueryArena(request) && (
         <QueryArenaCard
@@ -573,8 +583,8 @@ export function TimeSeriesTrace({
         />
       )}
 
-      <details className="border-t pt-4">
-        <summary className="cursor-pointer text-sm font-medium">
+      <details className="sr-only">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700">
           View accessible data table
         </summary>
         <div className="mt-3 max-h-80 overflow-auto">
@@ -640,6 +650,7 @@ export function TimeSeriesTrace({
           </table>
         </div>
       </details>
+      </div>
     </article>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Database, Gauge, ShieldCheck, Zap } from "lucide-react";
+import { Check, ChevronDown, Database, Gauge, ShieldCheck, Zap } from "lucide-react";
 
 import type {
   QueryArenaCandidate,
@@ -54,26 +54,31 @@ export function QueryArenaCard({
   const isComplete = result !== null;
 
   return (
-    <section
+    <details
       aria-label="Query Arena performance verification"
-      className="overflow-hidden rounded-xl border bg-card"
+      className="group analysis-tile col-span-12 overflow-hidden"
     >
-      <header className="flex flex-col gap-3 border-b bg-muted/30 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 marker:hidden sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-violet-100/70 text-violet-600">
             <Gauge aria-hidden="true" className="size-4" />
-            <h3 className="font-medium">Query Arena</h3>
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-xs font-semibold text-slate-700">Query Arena</h3>
+            <p className="truncate text-[11px] text-slate-500">
+              Trigger.dev races safe plans; Rust proves the winner.
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Trigger.dev races safe query plans. Rust proves their answers match.
-          </p>
         </div>
-        <span className="w-fit rounded-full border bg-background px-3 py-1 font-mono text-xs">
-          current · {STRATEGY_LABELS[currentStrategy]}
-        </span>
-      </header>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="hidden px-3 py-1 font-mono text-xs text-[#66758e] sm:block">
+            {STRATEGY_LABELS[currentStrategy]}
+          </span>
+          <ChevronDown aria-hidden="true" className="size-4 text-slate-400 transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
 
-      <div className="space-y-3 p-5" aria-live="polite">
+      <div className="space-y-3 border-t border-white/60 p-5" aria-live="polite">
         {STRATEGIES.map((strategy) => {
           const event = latestEvent(metadata, strategy);
           const candidate = result
@@ -95,7 +100,7 @@ export function QueryArenaCard({
           return (
             <div
               className={`relative overflow-hidden rounded-lg border p-4 ${
-                isWinner ? "border-foreground" : ""
+                isWinner ? "border-violet-300 bg-violet-50/45" : "border-white/65 bg-white/35"
               }`}
               key={strategy}
             >
@@ -229,6 +234,6 @@ export function QueryArenaCard({
           </div>
         )}
       </div>
-    </section>
+    </details>
   );
 }

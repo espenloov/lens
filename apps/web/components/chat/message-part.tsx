@@ -14,7 +14,7 @@ type MessagePartProps = {
 function ToolStatus({ children }: { readonly children: ReactNode }) {
   return (
     <p
-      className="text-sm text-muted-foreground"
+      className="text-sm text-slate-500"
       role="status"
       aria-live="polite"
     >
@@ -29,14 +29,15 @@ export function MessagePart({ part, role }: MessagePartProps) {
       return null;
     }
 
-    return (
-      <p
-        className={
-          role === "user"
-            ? "rounded-xl bg-foreground px-4 py-3 text-background"
-            : "max-w-2xl rounded-xl bg-muted px-4 py-3"
-        }
-      >
+    return role === "user" ? (
+      <div className="flex items-center gap-3 border-l-2 border-[#21c5be] py-0.5 pl-3">
+        <p className="shrink-0 text-xs font-medium text-[#66758e]">Current question</p>
+        <p className="truncate text-sm font-medium leading-5 text-[#09265b]">
+          {part.text}
+        </p>
+      </div>
+    ) : (
+      <p className="max-w-3xl text-sm leading-6 text-slate-600">
         {part.text}
       </p>
     );
@@ -60,7 +61,7 @@ export function MessagePart({ part, role }: MessagePartProps) {
 
       if (!output.success) {
         return (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="glass-panel rounded-2xl p-4 text-sm text-destructive" role="alert">
             Lens received an analysis result it could not safely display.
           </p>
         );
@@ -71,7 +72,7 @@ export function MessagePart({ part, role }: MessagePartProps) {
 
     case "output-error":
       return (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="glass-panel rounded-2xl p-4 text-sm text-destructive" role="alert">
           The property analysis failed. Please try again.
         </p>
       );
