@@ -8,7 +8,10 @@ import type { ExplorationRequest } from "@/lib/analysis/execution";
 import {
   compileAnalysisQuery,
   compileExplorationCountQuery,
+  type AnalysisQuerySource,
 } from "@/lib/analysis/query-compiler";
+import { getAnalysisDataSource } from "@/lib/data-sources/registry";
+import { toAnalysisQuerySource } from "@/lib/data-sources/query-source";
 
 import { getClickHouseClient } from "./client";
 
@@ -60,8 +63,9 @@ function queryError(cause: unknown): ExplorationArrowError {
 async function countExplorationRows(
   request: ExplorationRequest,
   abortSignal: AbortSignal,
+  source: AnalysisQuerySource,
 ): Promise<number> {
-  const compiled = compileExplorationCountQuery(request);
+  const compiled = compileExplorationCountQuery(request, source);
   const resultSet = await getClickHouseClient().query({
     query: compiled.query,
     query_params: compiled.queryParams,
@@ -71,7 +75,7 @@ async function countExplorationRows(
       max_execution_time: 20,
       max_memory_usage: "536870912",
       readonly: "1",
-      optimize_move_to_prewhere: 1,
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
     },
   });
   const parsed = countRowsSchema.parse(await resultSet.json<unknown>());
@@ -98,51 +102,58 @@ export function queryExplorationAsArrow(
       activeExplorations -= 1;
     }
   };
-  const result = ResultAsync.fromPromise(
-    countExplorationRows(request, abortSignal),
-    queryError,
-  ).andThen((sourceRows) => {
-    if (sourceRows > request.rowLimit) {
-      return errAsync({
-        type: "exploration_too_large" as const,
-        message: `This workspace contains ${sourceRows.toLocaleString()} transactions; narrow the dates or location to stay within ${request.rowLimit.toLocaleString()}`,
-        sourceRows,
-        rowLimit: request.rowLimit,
+  const result = getAnalysisDataSource(request.dataset, request.datasetVersion)
+    .mapErr(queryError)
+    .andThen((dataSource) => {
+      const source = toAnalysisQuerySource(dataSource);
+
+      return ResultAsync.fromPromise(
+        countExplorationRows(request, abortSignal, source),
+        queryError,
+      ).andThen((sourceRows) => {
+        if (sourceRows > request.rowLimit) {
+          return errAsync({
+            type: "exploration_too_large" as const,
+            message: `This workspace contains ${sourceRows.toLocaleString()} transactions; narrow the dates or location to stay within ${request.rowLimit.toLocaleString()}`,
+            sourceRows,
+            rowLimit: request.rowLimit,
+          });
+        }
+
+        const compiled = compileAnalysisQuery(request, "baseline", source);
+
+        return ResultAsync.fromPromise(
+          getClickHouseClient().exec({
+            query: compiled.query,
+            query_params: compiled.queryParams,
+            abort_signal: abortSignal,
+            clickhouse_settings: {
+              max_execution_time: 20,
+              max_result_rows: compiled.settings.max_result_rows,
+              max_result_bytes: "33554432",
+              max_memory_usage: "536870912",
+              output_format_arrow_compression_method: "lz4_frame",
+              result_overflow_mode: "throw",
+              readonly: "1",
+              optimize_move_to_prewhere:
+                compiled.settings.optimize_move_to_prewhere,
+            },
+          }),
+          queryError,
+        ).map((response) => {
+          response.stream.once("close", release);
+          response.stream.once("end", release);
+          response.stream.once("error", release);
+
+          return {
+            stream: response.stream,
+            queryId: response.query_id,
+            sourceRows,
+            responseHeaders: response.response_headers,
+          };
+        });
       });
-    }
-
-    const compiled = compileAnalysisQuery(request);
-
-    return ResultAsync.fromPromise(
-      getClickHouseClient().exec({
-        query: compiled.query,
-        query_params: compiled.queryParams,
-        abort_signal: abortSignal,
-        clickhouse_settings: {
-          max_execution_time: 20,
-          max_result_rows: compiled.settings.max_result_rows,
-          max_result_bytes: "33554432",
-          max_memory_usage: "536870912",
-          output_format_arrow_compression_method: "lz4_frame",
-          result_overflow_mode: "throw",
-          readonly: "1",
-          optimize_move_to_prewhere: 1,
-        },
-      }),
-      queryError,
-    ).map((response) => {
-      response.stream.once("close", release);
-      response.stream.once("end", release);
-      response.stream.once("error", release);
-
-      return {
-        stream: response.stream,
-        queryId: response.query_id,
-        sourceRows,
-        responseHeaders: response.response_headers,
-      };
     });
-  });
 
   return result.mapErr((error) => {
     release();

@@ -14,12 +14,12 @@ import {
 } from "@trigger.dev/sdk/chat/react";
 import { useRouter } from "next/navigation";
 import {
-  Aperture,
   ArrowRight,
   ArrowUp,
   Database,
   Gauge,
   History,
+  House,
   LayoutDashboard,
   Plus,
   Square,
@@ -29,16 +29,37 @@ import {
   mintPropertyChatAccessToken,
   startPropertyChatSession,
 } from "@/app/actions/chat";
+import {
+  AnalysisPerformanceProvider,
+  useAnalysisPerformance,
+} from "@/components/analysis/performance-context";
+import {
+  AnalysisNavigationProvider,
+  type PerformanceFocus,
+} from "@/components/analysis/analysis-navigation";
+import { PerformanceView } from "@/components/analysis/performance-view";
+import { BrandMark } from "@/components/brand-mark";
 import { MessagePart } from "@/components/chat/message-part";
 import { DashboardAssembly } from "@/components/dashboard-assembly";
+import { TechnologyMark } from "@/components/technology-mark";
 import { Button } from "@/components/ui/button";
+import type {
+  DataSourceProfile,
+  DataSourceSummary,
+} from "@/lib/data-sources/contracts";
 import type { propertyAgent } from "@/src/trigger/property-agent";
 
 type PropertyChatMessage = InferChatUIMessage<typeof propertyAgent>;
-type LensView = "workspace" | "clickhouse" | "performance" | "history";
+type LensView =
+  | "workspace"
+  | "clickhouse"
+  | "performance"
+  | "history";
 
 type PropertyChatProps = {
   readonly chatId: string;
+  readonly initialDataSource: DataSourceSummary;
+  readonly initialDataSourceProfile: DataSourceProfile;
 };
 
 type RailActionProps = {
@@ -50,6 +71,11 @@ type RailActionProps = {
 
 const STARTER_QUESTIONS = [
   {
+    label: "Understand the data",
+    question: "Show me what this data looks like",
+    preview: "density",
+  },
+  {
     label: "Compare places",
     question: "Compare Manchester and Liverpool prices since 2015",
     preview: "compare",
@@ -59,16 +85,44 @@ const STARTER_QUESTIONS = [
     question: "Find unusual monthly price changes by property type",
     preview: "anomaly",
   },
+] as const;
+
+const GENERIC_STARTER_QUESTIONS = [
   {
-    label: "Explore locally",
-    question: "Explore every UK property sale in 2022",
+    label: "Understand the data",
+    question: "Show me what this data looks like",
     preview: "density",
+    capability: "trend",
+  },
+  {
+    label: "Show the trend",
+    question: "Show the main measure over time",
+    preview: "compare",
+    capability: "trend",
+  },
+  {
+    label: "Compare groups",
+    question: "Compare the main measure across the leading groups",
+    preview: "density",
+    capability: "comparison",
+  },
+  {
+    label: "Find anomalies",
+    question: "Find unusual changes in the main measure",
+    preview: "anomaly",
+    capability: "anomaly",
+  },
+  {
+    label: "See the distribution",
+    question: "Show how the main measure is distributed",
+    preview: "density",
+    capability: "distribution",
   },
 ] as const;
 
 const VIEW_TITLES: Record<LensView, string> = {
   workspace: "Analysis workspace",
-  clickhouse: "ClickHouse data plane",
+  clickhouse: "Data overview",
   performance: "Performance laboratory",
   history: "Analysis history",
 };
@@ -99,7 +153,7 @@ function RailAction({
       type="button"
     >
       {children}
-      <span className="pointer-events-none absolute left-[3.5rem] z-50 whitespace-nowrap rounded-lg bg-[#09265b] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+      <span className="pointer-events-none absolute left-[3.5rem] z-[100] whitespace-nowrap rounded-lg bg-[var(--lens-dark)] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
         {label}
       </span>
     </button>
@@ -138,110 +192,232 @@ function StarterPreview({ kind }: { readonly kind: (typeof STARTER_QUESTIONS)[nu
   );
 }
 
-function ClickHouseView() {
-  return (
-    <div className="view-dashboard h-full overflow-hidden">
-      <div className="analysis-bento">
-        {[
-          ["Table", "pp_complete"],
-          ["Transactions", "28,919,900"],
-          ["Coverage", "1995–2024"],
-          ["Columns", "13 typed fields"],
-        ].map(([label, value]) => (
-          <section className="analysis-tile col-span-6 p-5 lg:col-span-3" key={label}>
-            <p className="text-xs text-[#66758e]">{label}</p>
-            <p className="mt-3 text-xl font-semibold tabular-nums text-[#09265b]">{value}</p>
-          </section>
-        ))}
+function formatPerformanceDuration(value: number): string {
+  if (value < 1) {
+    return `${value.toFixed(2)} ms`;
+  }
 
-        <section className="analysis-tile col-span-12 p-6 lg:col-span-7">
-          <p className="text-xs font-medium text-[#9a7b00]">ClickHouse</p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[#09265b]">
-            The analytical source of truth
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#66758e]">
-            The agent converts a validated analysis plan into bounded SQL. ClickHouse scans only the columns needed for the answer and streams the result as typed Arrow data.
-          </p>
-          <div className="mt-6 grid grid-cols-3 gap-3 text-xs text-[#596983]">
-            {["Safe plan", "Columnar scan", "ArrowStream"].map((step, index) => (
-              <div className="rounded-xl bg-[#f5c400]/10 px-3 py-4" key={step}>
-                <span className="font-mono text-[#9a7b00]">0{index + 1}</span>
-                <span className="mt-2 block font-medium text-[#09265b]">{step}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+  if (value < 1_000) {
+    return `${value.toFixed(0)} ms`;
+  }
 
-        <section className="analysis-tile col-span-12 p-6 lg:col-span-5">
-          <p className="text-xs text-[#66758e]">Available dimensions</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {["price", "date", "postcode", "type", "new build", "tenure", "street", "town", "district", "county"].map((column) => (
-              <span className="rounded-lg border border-[#09265b]/8 bg-white/70 px-2.5 py-1.5 font-mono text-xs text-[#596983]" key={column}>
-                {column}
-              </span>
-            ))}
-          </div>
-          <p className="mt-6 border-t border-[#09265b]/8 pt-5 text-xs leading-5 text-[#66758e]">
-            Exact rows read, bytes scanned, query ID, and server timing are attached to each completed analysis.
-          </p>
-        </section>
-      </div>
-    </div>
-  );
+  return `${(value / 1_000).toFixed(1)} s`;
 }
 
-function PerformanceView() {
-  const stages = [
-    ["Trigger.dev", "Durable agent run", "var(--trigger)"],
-    ["ClickHouse", "Parallel analytical scan", "var(--clickhouse)"],
-    ["Arrow", "Typed columnar transfer", "var(--arrow)"],
-    ["Rust / WASM", "Decode and local compute", "var(--rust)"],
-  ] as const;
+function ClickHouseView({
+  onAskOverview,
+  profile,
+  source,
+}: {
+  readonly onAskOverview: () => void;
+  readonly profile: DataSourceProfile;
+  readonly source: DataSourceSummary | null;
+}) {
+  const { latest, reports } = useAnalysisPerformance();
+  const table = source?.table ?? "pp_complete";
+  const rows = source?.rowCount ?? 28_919_900;
+  const dateFrom = source?.dateFrom ?? "1995-01-01";
+  const dateTo = source?.dateTo ?? "2024-01-31";
+  const fields = [
+    ...(profile.time === null
+      ? []
+      : [
+          {
+            key: profile.time.key,
+            label: profile.time.label,
+            role: "Time",
+          },
+        ]),
+    ...profile.measures.map((measure) => ({
+      key: measure.key,
+      label: measure.label,
+      role: "Measure",
+    })),
+    ...profile.dimensions.map((dimension) => ({
+      key: dimension.key,
+      label: dimension.label,
+      role: "Group",
+    })),
+  ];
+  const analysisModes = Object.values(
+    source?.capabilities.operations ?? {},
+  ).filter(Boolean).length;
 
   return (
     <div className="view-dashboard h-full overflow-hidden">
-      <div className="analysis-bento">
-        <section className="analysis-tile col-span-12 p-6 lg:col-span-8">
-          <p className="text-xs text-[#66758e]">Measured execution path</p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[#09265b]">
-            Every answer leaves a performance trace
-          </h2>
-          <ol className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {stages.map(([name, detail, color], index) => (
-              <li className="rounded-2xl border border-[#09265b]/8 bg-white/62 p-4" key={name}>
-                <span className="block h-1 w-8 rounded-full" style={{ background: color }} />
-                <span className="mt-5 block font-mono text-xs text-[#8591a5]">0{index + 1}</span>
-                <span className="mt-2 block text-sm font-semibold text-[#09265b]">{name}</span>
-                <span className="mt-1 block text-xs leading-5 text-[#66758e]">{detail}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="analysis-tile col-span-12 p-6 lg:col-span-4">
-          <p className="text-xs text-[#66758e]">Query Arena</p>
-          <h3 className="mt-3 text-xl font-semibold text-[#09265b]">SQL strategies race safely</h3>
-          <p className="mt-3 text-sm leading-6 text-[#66758e]">
-            Trigger.dev runs candidate queries in parallel. Rust fingerprints the typed results, so a faster strategy wins only when it is equivalent.
-          </p>
-          <div className="mt-6 rounded-2xl bg-[#09265b] p-4 text-white">
-            <p className="text-xs text-white/60">Safety rule</p>
-            <p className="mt-2 text-sm font-medium">Fast + identical result → reusable recipe</p>
+      <div className="analysis-bento h-full">
+        <section className="brand-hero analysis-tile relative col-span-12 min-h-0 overflow-hidden p-7 lg:col-span-7 lg:row-span-2">
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <TechnologyMark technology="clickhouse" />
+                <div>
+                  <p className="text-[11px] font-semibold text-[#8d7600]">
+                    Selected ClickHouse table
+                  </p>
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--ink-tertiary)]">
+                    {source?.database ?? "default"}.{table}
+                  </p>
+                </div>
+              </div>
+              <h2 className="mt-6 max-w-lg text-3xl font-semibold tracking-[-0.045em] text-[var(--ink)]">
+                {source?.displayName ?? "UK Price Paid"}
+              </h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-[var(--ink-secondary)]">
+                A validated analytical view with {fields.length} mapped fields
+                and {analysisModes} ways to explore it.
+              </p>
+            </div>
+            <div className="mt-7">
+              <p className="font-mono text-[clamp(2.7rem,6vw,5.4rem)] font-medium leading-none tracking-[-0.07em] text-[var(--ink)]">
+                {rows.toLocaleString()}
+              </p>
+              <div className="mt-4 flex items-center gap-3 text-xs text-[var(--ink-tertiary)]">
+                <span>rows</span>
+                <span>·</span>
+                <span>{dateFrom.slice(0, 4)}–{dateTo.slice(0, 4)}</span>
+              </div>
+              <button
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--lens-dark)] px-4 py-2.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7]"
+                onClick={onAskOverview}
+                type="button"
+              >
+                Show me this data
+                <ArrowRight aria-hidden="true" className="size-3.5" />
+              </button>
+            </div>
           </div>
         </section>
 
-        <section className="analysis-tile col-span-12 grid gap-5 p-6 sm:grid-cols-3">
-          {[
-            ["Server", "ClickHouse elapsed time"],
-            ["Transport", "Arrow bytes and round trip"],
-            ["Browser", "WASM startup and Rust compute"],
-          ].map(([label, detail]) => (
-            <div key={label}>
-              <p className="text-sm font-semibold text-[#09265b]">{label}</p>
-              <p className="mt-1 text-xs text-[#66758e]">{detail}</p>
-              <div className="mt-4 h-1.5 rounded-full bg-[#e6edf5]">
-                <div className="h-full w-1/3 rounded-full bg-[#21c5be]" />
+        <section className="analysis-tile col-span-12 min-h-0 overflow-hidden p-6 lg:col-span-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[11px] text-[var(--ink-tertiary)]">
+                What Lens understands
+              </p>
+              <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                Mapped fields
+              </h3>
+            </div>
+            <span className="font-mono text-[10px] text-[var(--ink-tertiary)]">
+              {fields.length} fields
+            </span>
+          </div>
+          <div className="soft-scrollbar mt-5 grid max-h-[12rem] grid-cols-2 gap-2 overflow-y-auto pr-1">
+            {fields.map((field) => (
+              <div
+                className="analysis-tile-quiet min-w-0 px-3 py-2.5"
+                key={`${field.role}:${field.key}`}
+              >
+                <p className="truncate text-xs font-semibold text-[var(--ink)]">
+                  {field.label}
+                </p>
+                <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.08em] text-[var(--ink-tertiary)]">
+                  {field.role}
+                </p>
               </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="analysis-tile col-span-12 flex min-h-0 flex-col overflow-hidden p-6 lg:col-span-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-[var(--ink-tertiary)]">
+                Recent questions
+              </p>
+              <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[var(--ink)]">
+                Live analysis
+              </h3>
+            </div>
+            <span className="rounded-full bg-[#21c5be]/10 px-2.5 py-1 text-[10px] font-semibold text-[#176f6b]">
+              {reports.length} complete
+            </span>
+          </div>
+          {reports.length === 0 ? (
+            <div className="mt-4 flex flex-1 items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--line-strong)] text-center">
+              <div className="flex items-center gap-2">
+                <TechnologyMark technology="trigger" />
+                <ArrowRight aria-hidden="true" className="size-4 text-[var(--ink-tertiary)]" />
+                <TechnologyMark technology="clickhouse" />
+              </div>
+              <p className="text-xs font-semibold text-[var(--ink)]">
+                Ready for a question
+              </p>
+            </div>
+          ) : (
+            <div className="soft-scrollbar mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+              {reports.slice(0, 2).map((report, index) => (
+                <div
+                  className="analysis-tile-quiet grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3"
+                  key={report.id}
+                >
+                  <span className="grid size-8 place-items-center rounded-xl bg-[#885cf6]/10 font-mono text-[10px] text-[#6d46d8]">
+                    {String(reports.length - index).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-[var(--ink)]">
+                      {report.question}
+                    </p>
+                    <p className="mt-1 truncate font-mono text-[9px] text-[var(--ink-tertiary)]">
+                      {report.queryId ?? report.contract}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-[10px] text-[var(--ink)]">
+                      {formatPerformanceDuration(report.roundTripMs)}
+                    </p>
+                    <p className="mt-1 text-[9px] text-[var(--ink-tertiary)]">
+                      query
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="analysis-tile col-span-12 grid items-center gap-3 p-4 sm:grid-cols-3 lg:col-span-7">
+          {[
+            {
+              detail:
+                latest === null
+                  ? "Durable agent"
+                  : formatPerformanceDuration(latest.triggerMs),
+              label: "Orchestrate",
+              technology: "trigger" as const,
+            },
+            {
+              detail:
+                latest === null
+                  ? `${analysisModes} analysis modes`
+                  : formatPerformanceDuration(latest.roundTripMs),
+              label: "Analyze",
+              technology: "clickhouse" as const,
+            },
+            {
+              detail:
+                latest === null
+                  ? "Winning recipes"
+                  : `${reports.length} recorded`,
+              label: "Remember",
+              technology: "postgres" as const,
+            },
+          ].map((step, index) => (
+            <div className="flex items-center gap-3 px-3" key={step.label}>
+              <TechnologyMark technology={step.technology} />
+              <div>
+                <p className="text-xs font-semibold text-[var(--ink)]">{step.label}</p>
+                <p className="mt-1 font-mono text-[9px] text-[var(--ink-tertiary)]">
+                  {step.detail}
+                </p>
+              </div>
+              {index < 2 && (
+                <ArrowRight
+                  aria-hidden="true"
+                  className="ml-auto hidden size-4 text-[var(--ink-tertiary)] sm:block"
+                />
+              )}
             </div>
           ))}
         </section>
@@ -302,18 +478,37 @@ function HistoryView({
   );
 }
 
-export function PropertyChat({ chatId }: PropertyChatProps) {
+function PropertyChatWorkspace({
+  chatId,
+  initialDataSource,
+  initialDataSourceProfile,
+}: PropertyChatProps) {
+  const { beginAnalysis, failAnalysis, markPlanReady } =
+    useAnalysisPerformance();
   const [input, setInput] = useState("");
   const [activeView, setActiveView] = useState<LensView>("workspace");
+  const [performanceFocus, setPerformanceFocus] =
+    useState<PerformanceFocus>("flow");
+  const [askingAnother, setAskingAnother] = useState(false);
   const [settling, setSettling] = useState(false);
   const wasBusy = useRef(false);
   const router = useRouter();
+  const activeSource = initialDataSource;
+  const starterQuestions = activeSource.builtin
+    ? STARTER_QUESTIONS
+    : GENERIC_STARTER_QUESTIONS.filter(
+        ({ capability }) => activeSource.capabilities.operations[capability],
+      ).slice(0, 3);
 
   const transport = useTriggerChatTransport<typeof propertyAgent>({
     task: "property-agent",
     accessToken: ({ chatId }) => mintPropertyChatAccessToken(chatId),
     startSession: ({ chatId, clientData }) =>
       startPropertyChatSession({ chatId, clientData }),
+    clientData: {
+      dataset: activeSource.slug,
+      datasetVersion: activeSource.version,
+    },
   });
 
   const { messages, sendMessage, status, stop, error } =
@@ -372,7 +567,10 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
     }
 
     for (const part of message.parts) {
-      if (part.type === "tool-submitAnalysisPlan") {
+      if (
+        part.type === "tool-submitAnalysisPlan" ||
+        part.type === "tool-submitSemanticAnalysisPlan"
+      ) {
         latestToolPart = part;
       } else if (part.type === "text" && part.text.length > 0) {
         latestAssistantTextPart = part;
@@ -381,6 +579,22 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
   }
 
   const hasAnalysisResult = latestToolPart !== null && !isBusy;
+  const showComposer = !hasAnalysisResult || askingAnother;
+
+  useEffect(() => {
+    if (hasAnalysisResult) {
+      markPlanReady();
+    }
+  }, [hasAnalysisResult, markPlanReady]);
+
+  useEffect(() => {
+    if (error !== undefined) {
+      failAnalysis(
+        "agent",
+        error.message || "The agent could not complete this question.",
+      );
+    }
+  }, [error, failAnalysis]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -395,13 +609,21 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
     }
 
     setActiveView("workspace");
+    setAskingAnother(false);
     setSettling(false);
+    beginAnalysis(question, activeSource.slug, activeSource.version);
     void sendMessage({ text: question });
     setInput("");
   }
 
-  function startNewAnalysis() {
-    router.push(`/?chat=${crypto.randomUUID()}`);
+  function chooseDataSource() {
+    router.push("/");
+  }
+
+  function askAnother() {
+    setActiveView("workspace");
+    setAskingAnother(true);
+    window.setTimeout(() => document.querySelector<HTMLInputElement>("#question")?.focus(), 0);
   }
 
   function askAgain(question: string) {
@@ -409,24 +631,28 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
     setActiveView("workspace");
   }
 
+  function openPerformance(focus: PerformanceFocus = "flow") {
+    setPerformanceFocus(focus);
+    setActiveView("performance");
+  }
+
   return (
-    <section className="grid h-full min-h-0 grid-cols-1 sm:grid-cols-[76px_minmax(0,1fr)]">
-      <nav aria-label="Lens views" className="lens-rail hidden min-h-0 flex-col items-center px-3 py-5 sm:flex">
-        <div aria-label="Lens" className="grid size-11 place-items-center rounded-2xl bg-[#09265b] text-white">
-          <Aperture aria-hidden="true" className="size-5" />
-        </div>
+    <AnalysisNavigationProvider openPerformance={openPerformance}>
+      <section className="grid h-full min-h-0 grid-cols-1 sm:grid-cols-[76px_minmax(0,1fr)]">
+      <nav aria-label="Lens views" className="lens-rail relative z-50 hidden min-h-0 flex-col items-center overflow-visible px-3 py-5 sm:flex">
+        <BrandMark className="drop-shadow-[0_10px_16px_rgb(45_57_84_/_18%)]" size={48} />
 
         <div className="mt-8 flex flex-col items-center gap-2">
-          <RailAction label="New analysis" onClick={startNewAnalysis}>
-            <Plus aria-hidden="true" className="size-5" />
+          <RailAction label="Data source home" onClick={chooseDataSource}>
+            <House aria-hidden="true" className="size-5" />
           </RailAction>
           <RailAction active={activeView === "workspace"} label="Workspace" onClick={() => setActiveView("workspace")}>
             <LayoutDashboard aria-hidden="true" className="size-5" />
           </RailAction>
-          <RailAction active={activeView === "clickhouse"} label="ClickHouse" onClick={() => setActiveView("clickhouse")}>
+          <RailAction active={activeView === "clickhouse"} label="Data overview" onClick={() => setActiveView("clickhouse")}>
             <Database aria-hidden="true" className="size-5" />
           </RailAction>
-          <RailAction active={activeView === "performance"} label="Performance" onClick={() => setActiveView("performance")}>
+          <RailAction active={activeView === "performance"} label="Performance" onClick={() => openPerformance("flow")}>
             <Gauge aria-hidden="true" className="size-5" />
           </RailAction>
           <RailAction active={activeView === "history"} label="History" onClick={() => setActiveView("history")}>
@@ -440,51 +666,96 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
         </div>
       </nav>
 
-      <div className="grid min-h-0 min-w-0 grid-rows-[60px_minmax(0,1fr)_82px] sm:grid-rows-[64px_minmax(0,1fr)_82px]">
-        <header className="flex items-center justify-between border-b border-[#09265b]/8 px-5 sm:px-7">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#09265b]">{VIEW_TITLES[activeView]}</p>
-            <p className="mt-0.5 text-xs text-[#66758e]">Lens · property intelligence</p>
+      <div
+        className={`grid min-h-0 min-w-0 ${
+          showComposer
+            ? "grid-rows-[64px_minmax(0,1fr)_82px]"
+            : "grid-rows-[64px_minmax(0,1fr)]"
+        }`}
+      >
+        <header className="flex items-center justify-between border-b border-[var(--line)] px-5 sm:px-7">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
+                {VIEW_TITLES[activeView]}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] text-[var(--ink-tertiary)]">
+                {activeSource.displayName} · {activeSource.rowCount.toLocaleString()} rows
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-[#09265b]/8 bg-white/58 px-3 py-2 text-xs text-[#596983]">
-            <span className="size-2 rounded-full bg-[#f5c400]" />
-            <span className="hidden sm:inline">UK Price Paid · 28.9m rows</span>
-            <span className="sm:hidden">28.9m rows</span>
+          <div className="flex items-center gap-2">
+            {hasAnalysisResult && (
+              <button
+                className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/60 px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition-colors hover:bg-white"
+                onClick={askAnother}
+                type="button"
+              >
+                <Plus aria-hidden="true" className="size-3.5 text-[#697cc7]" />
+                <span className="hidden sm:inline">New question</span>
+                <span className="sr-only sm:hidden">New question</span>
+              </button>
+            )}
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/48 px-3 py-2 text-xs text-[var(--ink-secondary)]">
+              <span className="size-2 rounded-full bg-[#f5c400]" />
+              <span className="hidden sm:inline">ClickHouse live</span>
+              <span className="sm:hidden">{activeSource.rowCount.toLocaleString()}</span>
+            </div>
           </div>
         </header>
 
         <main className="relative min-h-0 min-w-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-5">
           <section aria-hidden={activeView !== "workspace"} className="h-full min-h-0" hidden={activeView !== "workspace"}>
             {messages.length === 0 ? (
-              <div className="flex h-full min-h-0 flex-col justify-center">
-                <div className="mx-auto w-full max-w-5xl">
-                  <p className="text-sm font-medium text-[#176f6b]">Ask the market</p>
-                  <h1 className="mt-4 max-w-3xl text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#09265b] sm:text-5xl lg:text-[3.55rem]">
-                    Turn 29 million property sales into a clear answer.
-                  </h1>
-                  <p className="mt-4 max-w-xl text-sm leading-6 text-[#66758e]">
-                    Ask a normal question. Lens builds the analytical dashboard, then lets Rust reshape the result locally.
-                  </p>
-
-                  <div className="mt-8 grid gap-3 lg:grid-cols-3">
-                    {STARTER_QUESTIONS.map((starter) => (
-                      <button
-                        className="analysis-tile group min-h-44 p-5 text-left transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1769df] motion-reduce:transition-none"
-                        key={starter.question}
-                        onClick={() => submitQuestion(starter.question)}
-                        type="button"
-                      >
-                        <StarterPreview kind={starter.preview} />
-                        <span className="mt-5 flex items-center justify-between gap-4">
-                          <span>
-                            <span className="block text-sm font-semibold text-[#09265b]">{starter.label}</span>
-                            <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#66758e]">{starter.question}</span>
-                          </span>
-                          <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-[#21a8a3] transition-transform group-hover:translate-x-1" />
-                        </span>
-                      </button>
-                    ))}
+              <div className="mx-auto grid h-full min-h-0 w-full max-w-6xl grid-cols-12 gap-3">
+                <section className="brand-hero analysis-tile relative col-span-12 flex min-h-0 flex-col justify-between overflow-hidden p-7 lg:col-span-7 lg:p-9">
+                  <div className="relative z-10">
+                    <p className="text-xs font-semibold tracking-[0.08em] text-[var(--ink-tertiary)]">
+                      {activeSource.displayName}
+                    </p>
+                    <h1 className="mt-5 max-w-2xl text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.055em] text-[var(--ink)] sm:text-5xl lg:text-[3.5rem]">
+                      What do you want to see?
+                    </h1>
+                    <p className="mt-5 max-w-md text-sm leading-6 text-[var(--ink-secondary)]">
+                      Ask naturally. Lens turns {activeSource.rowCount.toLocaleString()} rows into a visual answer you can explore.
+                    </p>
                   </div>
+                  <div className="relative z-10 mt-8 flex items-end justify-between gap-6">
+                    <div>
+                      <div className="optical-rule h-0.5 w-20 rounded-full" />
+                      <p className="mt-3 text-[11px] text-[var(--ink-tertiary)]">
+                        Trigger.dev → ClickHouse → Arrow → Rust
+                      </p>
+                    </div>
+                    <BrandMark className="drop-shadow-[0_24px_34px_rgb(45_57_84_/_20%)]" size={142} />
+                  </div>
+                </section>
+
+                <div className="col-span-12 grid min-h-0 gap-3 lg:col-span-5 lg:grid-rows-3">
+                  {starterQuestions.map((starter, index) => (
+                    <button
+                      className={`analysis-tile group grid min-h-32 grid-cols-[minmax(0,1fr)_9rem] items-center gap-4 overflow-hidden p-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgb(45_57_84_/_11%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7] motion-reduce:transition-none ${
+                        index === 0 ? "bg-white/94" : ""
+                      }`}
+                      key={starter.question}
+                      onClick={() => submitQuestion(starter.question)}
+                      type="button"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
+                          {starter.label}
+                        </span>
+                        <span className="mt-2 line-clamp-2 block text-xs leading-5 text-[var(--ink-tertiary)]">
+                          {starter.question}
+                        </span>
+                        <ArrowRight
+                          aria-hidden="true"
+                          className="mt-4 size-4 text-[#697cc7] transition-transform group-hover:translate-x-1"
+                        />
+                      </span>
+                      <StarterPreview kind={starter.preview} />
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -529,40 +800,55 @@ export function PropertyChat({ chatId }: PropertyChatProps) {
           </section>
 
           <section aria-hidden={activeView !== "clickhouse"} className="h-full min-h-0" hidden={activeView !== "clickhouse"}>
-            <ClickHouseView />
+            <ClickHouseView
+              onAskOverview={() => submitQuestion("Show me what this data looks like")}
+              profile={initialDataSourceProfile}
+              source={activeSource}
+            />
           </section>
           <section aria-hidden={activeView !== "performance"} className="h-full min-h-0" hidden={activeView !== "performance"}>
-            <PerformanceView />
+            <PerformanceView focus={performanceFocus} />
           </section>
           <section aria-hidden={activeView !== "history"} className="h-full min-h-0" hidden={activeView !== "history"}>
             <HistoryView onAskAgain={askAgain} questions={sessionQuestions} />
           </section>
         </main>
 
-        <form
-          className="mx-4 mb-4 flex min-w-0 items-center gap-3 rounded-2xl border border-white/90 bg-white/76 p-2 pl-4 shadow-[0_14px_36px_rgb(46_75_116_/_10%)] backdrop-blur-2xl transition-shadow focus-within:ring-2 focus-within:ring-[#1769df]/70 sm:mx-6"
-          onSubmit={handleSubmit}
-        >
-          <label className="sr-only" htmlFor="question">Property-market question</label>
-          <Plus aria-hidden="true" className="size-4 shrink-0 text-[#8591a5]" />
-          <input
-            className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-[#24375b] outline-none placeholder:text-[#8591a5]"
-            id="question"
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about prices, places, patterns or anomalies…"
-            value={input}
-          />
-          {isBusy ? (
-            <Button aria-label="Stop analysis" className="size-11 shrink-0 rounded-xl" onClick={() => void stop()} type="button" variant="outline">
-              <Square aria-hidden="true" className="size-3.5 fill-current" />
-            </Button>
-          ) : (
-            <Button aria-label="Ask Lens" className="size-11 shrink-0 rounded-xl bg-[#09265b] text-white shadow-none hover:bg-[#123a78]" type="submit">
-              <ArrowUp aria-hidden="true" className="size-4" />
-            </Button>
-          )}
-        </form>
+        {showComposer && (
+          <form
+            className="mx-4 mb-4 flex min-w-0 items-center gap-3 rounded-2xl border border-white/90 bg-white/78 p-2 pl-4 shadow-[0_16px_38px_rgb(45_57_84_/_10%)] backdrop-blur-2xl transition-shadow focus-within:ring-2 focus-within:ring-[#8796d6]/55 sm:mx-6"
+            onSubmit={handleSubmit}
+          >
+            <label className="sr-only" htmlFor="question">Data question</label>
+            <Plus aria-hidden="true" className="size-4 shrink-0 text-[var(--ink-tertiary)]" />
+            <input
+              className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-tertiary)]"
+              id="question"
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about trends, groups, distributions or anomalies…"
+              value={input}
+            />
+            {isBusy ? (
+              <Button aria-label="Stop analysis" className="size-11 shrink-0 rounded-xl" onClick={() => void stop()} type="button" variant="outline">
+                <Square aria-hidden="true" className="size-3.5 fill-current" />
+              </Button>
+            ) : (
+              <Button aria-label="Ask Lens" className="size-11 shrink-0 rounded-xl bg-[var(--lens-dark)] text-white shadow-none hover:bg-[#3a4050]" type="submit">
+                <ArrowUp aria-hidden="true" className="size-4" />
+              </Button>
+            )}
+          </form>
+        )}
       </div>
-    </section>
+      </section>
+    </AnalysisNavigationProvider>
+  );
+}
+
+export function PropertyChat(props: PropertyChatProps) {
+  return (
+    <AnalysisPerformanceProvider triggerSessionId={props.chatId}>
+      <PropertyChatWorkspace {...props} />
+    </AnalysisPerformanceProvider>
   );
 }

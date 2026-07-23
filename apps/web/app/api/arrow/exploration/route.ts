@@ -7,6 +7,7 @@ import {
   type ExplorationRequest,
 } from "@/lib/analysis/execution";
 import { queryExplorationAsArrow } from "@/lib/clickhouse/exploration-arrow";
+import { authorizeDataSourceRead } from "@/lib/data-sources/access";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,14 @@ export async function POST(request: Request): Promise<Response> {
 
   if (input.isErr()) {
     return Response.json(input.error, { status: 400 });
+  }
+
+  if (input.value.dataset !== "uk_price_paid") {
+    const access = authorizeDataSourceRead(request);
+
+    if (access.isErr()) {
+      return Response.json(access.error, { status: access.error.status });
+    }
   }
 
   const result = await queryExplorationAsArrow(input.value, request.signal);

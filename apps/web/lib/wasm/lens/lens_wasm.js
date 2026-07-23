@@ -536,6 +536,664 @@ export class ExplorationWorkspace {
 }
 if (Symbol.dispose) ExplorationWorkspace.prototype[Symbol.dispose] = ExplorationWorkspace.prototype.free;
 
+export class GenericAnalyticalTable {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericAnalyticalTable.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericAnalyticalTableFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericAnalyticalTableFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericanalyticaltable_free(ptr, 0);
+    }
+    /**
+     * Calculates Pearson correlation between two selected measure roles.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when either role is unknown.
+     * @param {string} left_measure
+     * @param {string} right_measure
+     * @returns {GenericCorrelation}
+     */
+    correlation(left_measure, right_measure) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(left_measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(right_measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_correlation(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericCorrelation.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * Builds a bounded equal-width distribution for one measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for an unknown role, empty table, or unsafe
+     * bin count.
+     * @param {string} measure
+     * @param {number} bin_count
+     * @returns {GenericDistribution}
+     */
+    distribution(measure, bin_count) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_distribution(retptr, this.__wbg_ptr, ptr0, len0, bin_count);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericDistribution.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * Aggregates one measure by one categorical dimension role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an unsupported aggregation.
+     * @param {string} measure
+     * @param {string} dimension
+     * @param {string} aggregation
+     * @returns {GenericGroupComparison}
+     */
+    grouped_comparison(measure, dimension, aggregation) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(dimension, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len1 = WASM_VECTOR_LEN;
+            const ptr2 = passStringToWasm0(aggregation, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len2 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_grouped_comparison(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericGroupComparison.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * Calculates robust per-group anomaly scores for one measure.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error for unknown roles or an invalid threshold.
+     * @param {string} measure
+     * @param {string | null | undefined} dimension
+     * @param {number} threshold
+     * @returns {GenericAnomalies}
+     */
+    robust_anomalies(measure, dimension, threshold) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            var ptr1 = isLikeNone(dimension) ? 0 : passStringToWasm0(dimension, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            var len1 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_robust_anomalies(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, threshold);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericAnomalies.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.genericanalyticaltable_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Summarizes one selected measure role.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when the role is unknown or the table is empty.
+     * @param {string} measure
+     * @returns {GenericNumericSummary}
+     */
+    summarize(measure) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_summarize(retptr, this.__wbg_ptr, ptr0, len0);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericNumericSummary.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * Produces chronological columns for one measure and optional dimension.
+     *
+     * # Errors
+     *
+     * Returns a JavaScript error when a required semantic role is unavailable.
+     * @param {string} measure
+     * @param {string | null} [dimension]
+     * @returns {GenericTrendInput}
+     */
+    trend_input(measure, dimension) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            const len0 = WASM_VECTOR_LEN;
+            var ptr1 = isLikeNone(dimension) ? 0 : passStringToWasm0(dimension, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+            var len1 = WASM_VECTOR_LEN;
+            wasm.genericanalyticaltable_trend_input(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return GenericTrendInput.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) GenericAnalyticalTable.prototype[Symbol.dispose] = GenericAnalyticalTable.prototype.free;
+
+export class GenericAnomalies {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericAnomalies.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericAnomaliesFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericAnomaliesFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericanomalies_free(ptr, 0);
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    expected() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericanomalies_expected(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    flags() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericanomalies_flags(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 1, 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    scores() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericanomalies_scores(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    validity() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericanomalies_validity(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU8FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 1, 1);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) GenericAnomalies.prototype[Symbol.dispose] = GenericAnomalies.prototype.free;
+
+export class GenericCorrelation {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericCorrelation.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericCorrelationFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericCorrelationFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericcorrelation_free(ptr, 0);
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    get coefficient() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericcorrelation_coefficient(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get pair_count() {
+        const ret = wasm.genericcorrelation_pair_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) GenericCorrelation.prototype[Symbol.dispose] = GenericCorrelation.prototype.free;
+
+export class GenericDistribution {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericDistribution.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericDistributionFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericDistributionFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericdistribution_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get bin_count() {
+        const ret = wasm.genericdistribution_bin_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    bin_ends() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericdistribution_bin_ends(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    bin_starts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericdistribution_bin_starts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {BigUint64Array}
+     */
+    counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericdistribution_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) GenericDistribution.prototype[Symbol.dispose] = GenericDistribution.prototype.free;
+
+export class GenericGroupComparison {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericGroupComparison.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericGroupComparisonFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericGroupComparisonFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericgroupcomparison_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get group_count() {
+        const ret = wasm.genericgroupcomparison_group_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    label(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericgroupcomparison_label(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {BigUint64Array}
+     */
+    observation_counts() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericgroupcomparison_observation_counts(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.genericgroupcomparison_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) GenericGroupComparison.prototype[Symbol.dispose] = GenericGroupComparison.prototype.free;
+
+export class GenericNumericSummary {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericNumericSummary.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericNumericSummaryFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericNumericSummaryFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_genericnumericsummary_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get count() {
+        const ret = wasm.genericnumericsummary_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get maximum() {
+        const ret = wasm.genericnumericsummary_maximum(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get mean() {
+        const ret = wasm.genericnumericsummary_mean(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get median() {
+        const ret = wasm.genericnumericsummary_median(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get minimum() {
+        const ret = wasm.genericnumericsummary_minimum(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get q1() {
+        const ret = wasm.genericnumericsummary_q1(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get q3() {
+        const ret = wasm.genericnumericsummary_q3(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get standard_deviation() {
+        const ret = wasm.genericnumericsummary_standard_deviation(this.__wbg_ptr);
+        return ret;
+    }
+}
+if (Symbol.dispose) GenericNumericSummary.prototype[Symbol.dispose] = GenericNumericSummary.prototype.free;
+
+export class GenericTrendInput {
+    static __wrap(ptr) {
+        const obj = Object.create(GenericTrendInput.prototype);
+        obj.__wbg_ptr = ptr;
+        GenericTrendInputFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        GenericTrendInputFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_generictrendinput_free(ptr, 0);
+    }
+    /**
+     * @returns {BigInt64Array}
+     */
+    epoch_milliseconds() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.generictrendinput_epoch_milliseconds(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayI64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    get row_count() {
+        const ret = wasm.generictrendinput_row_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get series_count() {
+        const ret = wasm.generictrendinput_series_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {Uint32Array}
+     */
+    series_indexes() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.generictrendinput_series_indexes(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayU32FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} index
+     * @returns {string | undefined}
+     */
+    series_name(index) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.generictrendinput_series_name(retptr, this.__wbg_ptr, index);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getStringFromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export(r0, r1 * 1, 1);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {Float64Array}
+     */
+    values() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.generictrendinput_values(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayF64FromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 8, 8);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) GenericTrendInput.prototype[Symbol.dispose] = GenericTrendInput.prototype.free;
+
 export class HistogramData {
     static __wrap(ptr) {
         const obj = Object.create(HistogramData.prototype);
@@ -1131,6 +1789,50 @@ export function build_exploration_workspace(bytes, day_count, bin_count, bucket_
 }
 
 /**
+ * Decodes an `analytical_table/v1` Arrow stream using semantic role keys.
+ *
+ * The minimum browser boundary accepts one required measure, one optional
+ * secondary measure, one optional time role, and one optional dimension.
+ * Additional core roles can be introduced without changing the Arrow decoder.
+ *
+ * # Errors
+ *
+ * Returns a JavaScript error when role keys are invalid or the Arrow data
+ * violates the generic analytical-table safety contract.
+ * @param {Uint8Array} bytes
+ * @param {string | null | undefined} time_column
+ * @param {string} primary_measure
+ * @param {string | null} [secondary_measure]
+ * @param {string | null} [dimension]
+ * @returns {GenericAnalyticalTable}
+ */
+export function decode_analytical_table_arrow(bytes, time_column, primary_measure, secondary_measure, dimension) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(time_column) ? 0 : passStringToWasm0(time_column, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        var len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(primary_measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        const len2 = WASM_VECTOR_LEN;
+        var ptr3 = isLikeNone(secondary_measure) ? 0 : passStringToWasm0(secondary_measure, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        var len3 = WASM_VECTOR_LEN;
+        var ptr4 = isLikeNone(dimension) ? 0 : passStringToWasm0(dimension, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+        var len4 = WASM_VECTOR_LEN;
+        wasm.decode_analytical_table_arrow(retptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return GenericAnalyticalTable.__wrap(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Decodes a `categorical/v1` Arrow IPC stream.
  *
  * # Errors
@@ -1439,6 +2141,27 @@ const ExplorationWindowFinalization = (typeof FinalizationRegistry === 'undefine
 const ExplorationWorkspaceFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_explorationworkspace_free(ptr, 1));
+const GenericAnalyticalTableFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericanalyticaltable_free(ptr, 1));
+const GenericAnomaliesFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericanomalies_free(ptr, 1));
+const GenericCorrelationFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericcorrelation_free(ptr, 1));
+const GenericDistributionFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericdistribution_free(ptr, 1));
+const GenericGroupComparisonFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericgroupcomparison_free(ptr, 1));
+const GenericNumericSummaryFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_genericnumericsummary_free(ptr, 1));
+const GenericTrendInputFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_generictrendinput_free(ptr, 1));
 const HistogramDataFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_histogramdata_free(ptr, 1));
@@ -1480,6 +2203,11 @@ function getArrayI32FromWasm0(ptr, len) {
     return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
+function getArrayI64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getBigInt64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
 function getArrayU32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
@@ -1493,6 +2221,14 @@ function getArrayU64FromWasm0(ptr, len) {
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedBigInt64ArrayMemory0 = null;
+function getBigInt64ArrayMemory0() {
+    if (cachedBigInt64ArrayMemory0 === null || cachedBigInt64ArrayMemory0.byteLength === 0) {
+        cachedBigInt64ArrayMemory0 = new BigInt64Array(wasm.memory.buffer);
+    }
+    return cachedBigInt64ArrayMemory0;
 }
 
 let cachedBigUint64ArrayMemory0 = null;
@@ -1553,6 +2289,10 @@ let heap = new Array(1024).fill(undefined);
 heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
 
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
@@ -1659,6 +2399,7 @@ function __wbg_finalize_init(instance, module) {
     wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
+    cachedBigInt64ArrayMemory0 = null;
     cachedBigUint64ArrayMemory0 = null;
     cachedDataViewMemory0 = null;
     cachedFloat64ArrayMemory0 = null;

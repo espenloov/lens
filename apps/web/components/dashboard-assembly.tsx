@@ -1,13 +1,15 @@
+import { BrandMark } from "@/components/brand-mark";
+
 type DashboardAssemblyProps = {
   readonly settling: boolean;
 };
 
 const TILES = [
-  ["ClickHouse is shaping the result", "Hero visualization"],
-  ["Agent is checking the finding", "Key insight"],
-  ["Rust is typing the values", "Selected comparison"],
-  ["Arrow is streaming", "Execution evidence"],
-  ["Trigger.dev is verifying", "Performance proof"],
+  ["Shaping the signal", "Main view"],
+  ["Finding what matters", "Key insight"],
+  ["Comparing the values", "Selected focus"],
+  ["Streaming typed data", "Arrow"],
+  ["Verifying the answer", "Performance"],
 ] as const;
 
 function TilePreview({ index }: { readonly index: number }) {
@@ -63,18 +65,32 @@ export function DashboardAssembly({ settling }: DashboardAssemblyProps) {
       aria-live="polite"
       className={`assembly-stage ${settling ? "is-settling" : ""}`}
     >
-      <div className="absolute bottom-4 left-1/2 z-10 w-max max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl border border-white/90 bg-white/80 px-4 py-2.5 text-center shadow-sm backdrop-blur-xl">
-        <p className="text-sm font-medium text-[#09265b]">
-          {settling ? "Placing your dashboard" : "Building your analytical workspace"}
-        </p>
-        <p className="mt-2 text-xs text-[#66758e]">
-          {settling ? "The result is ready." : "Each tile is computed from the same validated plan."}
-        </p>
+      <div className="absolute bottom-4 left-1/2 z-10 flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/90 bg-white/78 px-4 py-2.5 shadow-[0_14px_32px_rgb(45_57_84_/_9%)] backdrop-blur-xl">
+        <BrandMark size={34} />
+        <div>
+          <p className="text-sm font-semibold tracking-[-0.02em] text-[var(--ink)]">
+            {settling ? "Bringing it into focus" : "Building your answer"}
+          </p>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            {[
+              "var(--trigger)",
+              "var(--clickhouse)",
+              "var(--arrow)",
+              "var(--rust)",
+            ].map((colour) => (
+              <span
+                className="size-1.5 rounded-full"
+                key={colour}
+                style={{ background: colour }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
       {TILES.map(([label, detail], index) => (
         <div aria-hidden="true" className={`assembly-tile assembly-tile-${index + 1} flex flex-col`} key={label}>
-          <span className="text-xs font-semibold text-[#09265b]">{label}</span>
-          <span className="mt-1 block text-xs text-[#66758e]">{detail}</span>
+          <span className="text-xs font-semibold text-[var(--ink)]">{label}</span>
+          <span className="mt-1 block text-[11px] text-[var(--ink-tertiary)]">{detail}</span>
           <TilePreview index={index} />
         </div>
       ))}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { semanticAnalysisRequestSchema } from "../analysis/semantic-plan";
 import { queryArenaTimeSeriesRequestSchema } from "../time-series/contracts";
 
 export const queryStrategySchema = z.enum(["baseline", "prewhere"]);
@@ -91,8 +92,54 @@ export const queryArenaMetadataSchema = z.object({
     .optional(),
 });
 
+export const queryArenaSemanticRequestSchema =
+  semanticAnalysisRequestSchema.refine(
+    (request) => {
+      if (request.shape !== "time_series") {
+        return false;
+      }
+
+      const plan = request.plan;
+
+      if (
+        plan.operation === "distribution" ||
+        plan.operation === "ranking"
+      ) {
+        return false;
+      }
+
+      if (
+        plan.operation === "comparison" ||
+        plan.operation === "trend" ||
+        plan.operation === "anomaly"
+      ) {
+        return (
+          plan.metric.kind === "row_count" ||
+          plan.metric.aggregation !== "median"
+        );
+      }
+
+      return true;
+    },
+    {
+      message:
+        "Query Arena supports exact manifest-driven time-series analyses",
+    },
+  );
+
+export const queryArenaRequestSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("time_series"),
+    request: queryArenaTimeSeriesRequestSchema,
+  }),
+  z.object({
+    kind: z.literal("semantic"),
+    request: queryArenaSemanticRequestSchema,
+  }),
+]);
+
 export const queryArenaStartSchema = z.object({
-  request: queryArenaTimeSeriesRequestSchema,
+  analysis: queryArenaRequestSchema,
 });
 
 export const queryArenaStartResponseSchema = z.object({
@@ -119,3 +166,4 @@ export type QueryArenaCandidate = z.infer<typeof queryArenaCandidateSchema>;
 export type QueryArenaResult = z.infer<typeof queryArenaResultSchema>;
 export type QueryArenaMetadata = z.infer<typeof queryArenaMetadataSchema>;
 export type QueryArenaSnapshot = z.infer<typeof queryArenaSnapshotSchema>;
+export type QueryArenaRequest = z.infer<typeof queryArenaRequestSchema>;

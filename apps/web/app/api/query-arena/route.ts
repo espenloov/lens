@@ -7,7 +7,7 @@ import {
   queryArenaStartSchema,
 } from "@/lib/query-arena/contracts";
 import {
-  createAnalysisSignature,
+  createQueryArenaSignature,
   createArenaId,
 } from "@/lib/query-arena/signature";
 
@@ -29,15 +29,15 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const signature = createAnalysisSignature(input.data.request);
+  const signature = createQueryArenaSignature(input.data.analysis);
   const arenaId = createArenaId(signature);
   const triggered = await ResultAsync.fromPromise(
     tasks.trigger<typeof queryArenaTask>(
       "query-arena",
       {
+        analysis: input.data.analysis,
         arenaId,
         signature,
-        request: input.data.request,
       },
       {
         idempotencyKey: arenaId,
@@ -47,6 +47,10 @@ export async function POST(request: Request): Promise<Response> {
           phase: "queued",
           progress: 0,
           strategies: ["baseline", "prewhere"],
+          dataset:
+            input.data.analysis.kind === "semantic"
+              ? input.data.analysis.request.plan.dataset
+              : input.data.analysis.request.dataset,
           completedCandidates: 0,
           candidateEvents: [],
         },

@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { useAnalysisPerformance } from "@/components/analysis/performance-context";
+import { DashboardAssembly } from "@/components/dashboard-assembly";
 import type { AnalysisPlan } from "@/lib/analysis/contracts";
 import type {
   CategoricalRequest,
@@ -12,7 +14,6 @@ import type {
 import {
   loadGrammarAnalysis,
   type GrammarAnalysisRequest,
-  type GrammarLoadResult,
 } from "@/lib/analysis/load";
 import type {
   CategoryFrame,
@@ -21,14 +22,12 @@ import type {
 } from "@/lib/wasm/analysis";
 
 import {
-  formatBytes,
   formatCompactCount,
   formatCompactPrice,
   formatCount,
-  formatDuration,
   formatPrice,
 } from "./formatters";
-import { ExecutionStory } from "./execution-story";
+import { AnalysisEvidenceLink } from "./analysis-evidence-link";
 import { InsightHeader } from "./insight-header";
 
 type GrammarAnalysisProps = {
@@ -62,34 +61,9 @@ function CategoryView({
   readonly request: CategoricalRequest;
 }) {
   const maximum = Math.max(...frame.values, 1);
-  const strongestIndex = frame.values.reduce(
-    (best, value, index) => (value > frame.values[best] ? index : best),
-    0,
-  );
-  const findingLabel =
-    request.transform === "share"
-      ? "Largest market share"
-      : request.metric === "transaction_count"
-        ? "Most transactions"
-        : request.metric === "average_price"
-          ? "Highest average price"
-          : "Highest estimated median";
 
   return (
     <div>
-      <div className="metric-glass mb-6 flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-medium text-[#21a8a3]">
-            {findingLabel}
-          </p>
-          <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
-            {frame.categories[strongestIndex]}
-          </p>
-        </div>
-        <p className="font-mono text-2xl font-medium tabular-nums text-slate-800">
-          {formatValue(frame.values[strongestIndex], request)}
-        </p>
-      </div>
       <div className="space-y-3">
         {frame.categories.map((category, index) => (
           <div className="grid grid-cols-[minmax(7rem,0.7fr)_2fr_auto] items-center gap-3" key={category}>
@@ -121,32 +95,10 @@ function HistogramView({
   const overflowStart =
     (request.filters.minimumPrice ?? 0) +
     (request.maximumBins - 1) * request.bucketWidth;
-  const strongestRow = frame.values.reduce(
-    (best, value, index) => (value > frame.values[best] ? index : best),
-    0,
-  );
-  const strongestOverflow = frame.binStarts[strongestRow] === overflowStart;
-  const strongestLabel = strongestOverflow
-    ? `${formatPrice(frame.binStarts[strongestRow])}+`
-    : `${formatPrice(frame.binStarts[strongestRow])}–${formatPrice(frame.binEnds[strongestRow])}`;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(13rem,0.36fr)_1fr]">
-      <div className="rounded-2xl bg-[#f3f7fc] p-5">
-        <div>
-          <p className="text-xs font-medium text-[#21a8a3]">
-            Most active price band
-          </p>
-          <p className="mt-3 text-xl font-semibold tracking-tight text-[#09265b]">
-            {strongestLabel}
-          </p>
-        </div>
-        <p className="mt-6 text-3xl font-semibold tabular-nums text-[#09265b]">
-          {formatValue(frame.values[strongestRow], request)}
-        </p>
-      </div>
-      <div className="min-w-0">
-        <div className="flex h-72 items-end gap-px border-b border-[#09265b]/10" aria-label="Price distribution histogram" role="img">
+    <div className="min-w-0">
+        <div className="flex h-52 items-end gap-px border-b border-[#09265b]/10" aria-label="Price distribution histogram" role="img">
           {Array.from({ length: frame.values.length }, (_, row) => {
             const series = frame.seriesNames[frame.seriesIndexes[row]];
             const overflow = frame.binStarts[row] === overflowStart;
@@ -168,7 +120,7 @@ function HistogramView({
           <span>{formatPrice(frame.binStarts[0])}</span>
           <span>{formatPrice(frame.binStarts.at(-1) ?? 0)}+</span>
         </div>
-        <details className="mt-5 text-sm text-[#596983]">
+        <details className="mt-3 text-sm text-[#596983]">
           <summary className="cursor-pointer font-medium text-[#1769df]">View price bands</summary>
           <div className="mt-3 max-h-56 overflow-auto">
             {Array.from({ length: frame.values.length }, (_, row) => (
@@ -179,7 +131,6 @@ function HistogramView({
             ))}
           </div>
         </details>
-      </div>
     </div>
   );
 }
@@ -202,26 +153,9 @@ function MatrixView({
     [frame],
   );
   const maximum = Math.max(...frame.values, 1);
-  const strongestRow = frame.values.reduce(
-    (best, value, index) => (value > frame.values[best] ? index : best),
-    0,
-  );
 
   return (
     <div className="space-y-4 overflow-x-auto">
-      <div className="metric-glass flex min-w-80 flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-medium text-[#21a8a3]">
-            Highest intersection
-          </p>
-          <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
-            {frame.xLabels[frame.xIndexes[strongestRow]]} · {frame.yLabels[frame.yIndexes[strongestRow]]}
-          </p>
-        </div>
-        <p className="font-mono text-2xl font-medium tabular-nums text-slate-800">
-          {formatValue(frame.values[strongestRow], request)}
-        </p>
-      </div>
       <div
         className="grid min-w-max gap-1"
         style={{ gridTemplateColumns: `8rem repeat(${frame.xLabels.length}, minmax(3.5rem, 1fr))` }}
@@ -283,34 +217,158 @@ function MatrixView({
   );
 }
 
-function PerformanceStrip({ loaded }: { readonly loaded: GrammarLoadResult }) {
-  return (
-    <ExecutionStory
-      metrics={[
-        { label: "Arrow payload", value: formatBytes(loaded.arrowBytes) },
-        { label: "Typed contract", value: loaded.arrowContract ?? "unknown" },
-        { label: "Round trip", value: formatDuration(loaded.roundTripMs) },
-        { label: "Rust decode", value: `${loaded.rustDecodeMs.toFixed(2)} ms` },
-      ]}
-      queryId={loaded.queryId}
-      summary="Trigger.dev plan · ClickHouse query · Arrow frame · Rust decode"
-    />
-  );
+type GrammarDashboardHighlight = {
+  readonly focusLabel: string;
+  readonly focusValue: string;
+  readonly focusDetail: string;
+  readonly secondaryLabel: string;
+  readonly secondaryValue: string;
+  readonly tertiaryLabel: string;
+  readonly tertiaryValue: string;
+  readonly finding: string;
+};
+
+function grammarDashboardHighlight(
+  frame: CategoryFrame | HistogramFrame | MatrixFrame,
+  request: GrammarAnalysisRequest,
+): GrammarDashboardHighlight {
+  const orderedRows = Array.from(
+    { length: frame.values.length },
+    (_, index) => index,
+  ).sort((left, right) => frame.values[right] - frame.values[left]);
+  const strongestRow = orderedRows[0] ?? 0;
+  const secondRow = orderedRows[1];
+  const strongestValue = frame.values[strongestRow] ?? 0;
+  const total = frame.values.reduce((sum, value) => sum + value, 0);
+
+  if (frame.kind === "categorical" && request.shape === "categorical") {
+    const secondValue =
+      secondRow === undefined ? null : frame.values[secondRow] ?? null;
+    const gap =
+      secondValue === null ? null : Math.abs(strongestValue - secondValue);
+    const share = total === 0 ? null : (strongestValue / total) * 100;
+
+    return {
+      focusLabel:
+        request.transform === "share"
+          ? "Largest share"
+          : request.metric === "transaction_count"
+            ? "Most active group"
+            : "Highest value",
+      focusValue: formatValue(strongestValue, request),
+      focusDetail: frame.categories[strongestRow] ?? "—",
+      secondaryLabel: secondValue === null ? "Groups compared" : "Gap to next",
+      secondaryValue:
+        gap === null
+          ? frame.categories.length.toLocaleString()
+          : formatValue(gap, request),
+      tertiaryLabel: "Share of the result",
+      tertiaryValue: share === null ? "—" : `${share.toFixed(1)}%`,
+      finding:
+        gap === null
+          ? `${frame.categories[strongestRow] ?? "The leading group"} has the highest value.`
+          : `${frame.categories[strongestRow] ?? "The leading group"} leads the next group by ${formatValue(gap, request)}.`,
+    };
+  }
+
+  if (frame.kind === "histogram" && request.shape === "histogram") {
+    const overflowStart =
+      (request.filters.minimumPrice ?? 0) +
+      (request.maximumBins - 1) * request.bucketWidth;
+    const overflow = frame.binStarts[strongestRow] === overflowStart;
+    const label = overflow
+      ? `${formatPrice(frame.binStarts[strongestRow])}+`
+      : `${formatPrice(frame.binStarts[strongestRow])}–${formatPrice(frame.binEnds[strongestRow])}`;
+    const share = total === 0 ? null : (strongestValue / total) * 100;
+    const millionPlus = frame.values.reduce(
+      (sum, value, index) =>
+        sum + (frame.binStarts[index] >= 1_000_000 ? value : 0),
+      0,
+    );
+
+    return {
+      focusLabel: "Most common range",
+      focusValue: label,
+      focusDetail: `${formatCount(Math.round(strongestValue))} sales`,
+      secondaryLabel: "In this range",
+      secondaryValue: share === null ? "—" : `${share.toFixed(1)}%`,
+      tertiaryLabel: "£1m+ sales",
+      tertiaryValue: formatCount(Math.round(millionPlus)),
+      finding: `${label} is the largest price band, containing ${share === null ? "the most" : `${share.toFixed(1)}% of`} recorded sales.`,
+    };
+  }
+
+  const matrix = frame as MatrixFrame;
+  const secondValue =
+    secondRow === undefined ? null : matrix.values[secondRow] ?? null;
+  const gap =
+    secondValue === null ? null : Math.abs(strongestValue - secondValue);
+
+  return {
+    focusLabel: "Strongest intersection",
+    focusValue: formatValue(strongestValue, request),
+    focusDetail: `${matrix.xLabels[matrix.xIndexes[strongestRow]]} · ${matrix.yLabels[matrix.yIndexes[strongestRow]]}`,
+    secondaryLabel: "Gap to next",
+    secondaryValue: gap === null ? "—" : formatValue(gap, request),
+    tertiaryLabel: "Combinations",
+    tertiaryValue: matrix.values.length.toLocaleString(),
+    finding: `${matrix.xLabels[matrix.xIndexes[strongestRow]]} with ${matrix.yLabels[matrix.yIndexes[strongestRow]]} is the strongest intersection.`,
+  };
 }
 
 export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
+  const { failAnalysis, reportAnalysis } = useAnalysisPerformance();
   const query = useQuery({
     queryKey: ["grammar-analysis", request],
     queryFn: async () => loadGrammarAnalysis(request),
     retry: false,
   });
 
+  useEffect(() => {
+    if (query.data?.isOk() !== true) {
+      return;
+    }
+
+    const loaded = query.data.value;
+    reportAnalysis({
+      title: plan.title,
+      kind: request.operation,
+      queryId: loaded.queryId,
+      contract: loaded.arrowContract ?? `${request.shape}/v1`,
+      arrowBytes: loaded.arrowBytes,
+      typedRows: loaded.frame.values.length,
+      roundTripMs: loaded.roundTripMs,
+      wasmStartupMs: loaded.wasmStartupMs,
+      rustDecodeMs: loaded.rustDecodeMs,
+      rustComputeMs: 0,
+    });
+  }, [
+    plan.title,
+    query.data,
+    reportAnalysis,
+    request.operation,
+    request.shape,
+  ]);
+
+  useEffect(() => {
+    if (query.isError) {
+      failAnalysis("clickhouse", "The analysis request failed unexpectedly.");
+      return;
+    }
+
+    if (query.data?.isErr() === true) {
+      failAnalysis(
+        query.data.error.kind === "analysis-wasm" ? "rust" : "clickhouse",
+        query.data.error.message,
+      );
+    }
+  }, [failAnalysis, query.data, query.isError]);
+
   if (query.isPending) {
     return (
-      <section aria-live="polite" className="glass-panel-strong space-y-4 rounded-[1.75rem] p-6 sm:p-8">
-        <p className="text-sm font-medium text-slate-700">Streaming a typed analysis frame…</p>
-        <div className="glass-inset h-64 animate-pulse rounded-[1.4rem]" />
-      </section>
+      <div className="h-full min-h-[24rem]">
+        <DashboardAssembly settling={false} />
+      </div>
     );
   }
 
@@ -323,6 +381,11 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   }
 
   const loaded = query.data.value;
+  const highlight = grammarDashboardHighlight(loaded.frame, request);
+  const mainWidth =
+    loaded.frame.kind === "matrix" ? "lg:col-span-7" : "lg:col-span-8";
+  const sideWidth =
+    loaded.frame.kind === "matrix" ? "lg:col-span-5" : "lg:col-span-4";
 
   if (loaded.frame.values.length === 0) {
     return (
@@ -336,9 +399,9 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
   }
 
   return (
-    <article className="space-y-3">
+    <article className="dashboard-revealing space-y-3">
       <div className="analysis-bento">
-      <section className="analysis-tile col-span-12 p-5 sm:p-7">
+      <section className={`analysis-tile col-span-12 p-5 sm:p-7 ${mainWidth}`}>
         <div className="mb-5 border-b border-[#09265b]/8 pb-4">
           <InsightHeader
             eyebrow={plan.operation}
@@ -357,7 +420,52 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
         )}
       </section>
 
-      <PerformanceStrip loaded={loaded} />
+      <aside className={`col-span-12 grid gap-3 ${sideWidth} lg:grid-rows-2`}>
+        <section className="brand-hero analysis-tile relative flex min-h-36 flex-col justify-between overflow-hidden p-5">
+          <div className="relative z-10">
+            <p className="text-[11px] text-[var(--ink-tertiary)]">
+              {highlight.focusLabel}
+            </p>
+            <p className="mt-3 break-words text-2xl font-semibold tracking-[-0.045em] text-[var(--ink)]">
+              {highlight.focusValue}
+            </p>
+          </div>
+          <p className="relative z-10 mt-6 text-sm font-semibold text-[var(--ink)]">
+            {highlight.focusDetail}
+          </p>
+        </section>
+
+        <section className="analysis-tile flex min-h-36 flex-col justify-between p-5">
+          <div>
+            <p className="text-[11px] text-[var(--ink-tertiary)]">
+              Lens finding
+            </p>
+            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-5 text-[var(--ink)]">
+              {highlight.finding}
+            </p>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="analysis-tile-quiet p-2.5">
+              <p className="text-[9px] text-[var(--ink-tertiary)]">
+                {highlight.secondaryLabel}
+              </p>
+              <p className="mt-2 truncate text-xs font-semibold text-[var(--ink)]">
+                {highlight.secondaryValue}
+              </p>
+            </div>
+            <div className="analysis-tile-quiet p-2.5">
+              <p className="text-[9px] text-[var(--ink-tertiary)]">
+                {highlight.tertiaryLabel}
+              </p>
+              <p className="mt-2 truncate text-xs font-semibold text-[var(--ink)]">
+                {highlight.tertiaryValue}
+              </p>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <AnalysisEvidenceLink />
       </div>
     </article>
   );

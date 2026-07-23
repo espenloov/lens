@@ -17,7 +17,7 @@ export function InsightHeader({
     <header className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-end">
       <div>
         <p className="text-xs font-medium text-[#176f6b]">{eyebrow}</p>
-        <h2 className="mt-2 text-balance text-2xl font-semibold tracking-[-0.03em] text-[#09265b] sm:text-3xl" id={titleId}>
+        <h2 className="mt-2 text-balance text-2xl font-semibold tracking-[-0.04em] text-[var(--ink)] sm:text-3xl" id={titleId}>
           {title}
         </h2>
       </div>

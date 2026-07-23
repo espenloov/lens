@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { datasetSlugSchema } from "../data-sources/contracts";
+
 import {
   aggregateMetricSchema,
   categoricalDimensionSchema,
@@ -12,12 +14,8 @@ import {
 
 const executableFiltersSchema = z
   .object({
-    dateFrom: z.iso.date().refine((date) => date >= "1995-01-01", {
-      message: "The dataset starts on 1995-01-01",
-    }),
-    dateTo: z.iso.date().refine((date) => date <= "2024-01-31", {
-      message: "The dataset ends on 2024-01-31",
-    }),
+    dateFrom: z.iso.date(),
+    dateTo: z.iso.date(),
     location: z
       .object({
         level: locationLevelSchema,
@@ -47,6 +45,8 @@ const executableFiltersSchema = z
 
 const timeSeriesBase = {
   shape: z.literal("time_series"),
+  dataset: datasetSlugSchema.default("uk_price_paid"),
+  datasetVersion: z.number().int().positive().optional(),
   filters: executableFiltersSchema,
 };
 
@@ -118,6 +118,14 @@ function hasBoundedGeography(
 
 const timeSeriesRequestSchema = timeSeriesRequestUnion.superRefine(
   (request, context) => {
+    if (request.dataset !== "uk_price_paid" && request.datasetVersion === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Registered datasets require an immutable version",
+        path: ["datasetVersion"],
+      });
+    }
+
     if (!hasBoundedGeography(request.seriesBy, request.filters)) {
       context.addIssue({
         code: "custom",
@@ -131,6 +139,8 @@ const timeSeriesRequestSchema = timeSeriesRequestUnion.superRefine(
 
 const categoricalBase = {
   shape: z.literal("categorical"),
+  dataset: datasetSlugSchema.default("uk_price_paid"),
+  datasetVersion: z.number().int().positive().optional(),
   order: z.enum(["ascending", "descending"]),
   limit: z.number().int().min(3).max(50),
   filters: executableFiltersSchema,
@@ -184,6 +194,8 @@ const categoricalRequestSchema = categoricalRequestUnion.superRefine(
 
 const histogramRequestSchema = z.object({
   shape: z.literal("histogram"),
+  dataset: datasetSlugSchema.default("uk_price_paid"),
+  datasetVersion: z.number().int().positive().optional(),
   operation: z.literal("distribution"),
   field: z.literal("price"),
   splitBy: compactDimensionSchema.nullable(),
@@ -211,6 +223,8 @@ const heatmapDimensionSchema = z.enum([
 const matrixRequestSchema = z
   .object({
     shape: z.literal("matrix"),
+    dataset: datasetSlugSchema.default("uk_price_paid"),
+    datasetVersion: z.number().int().positive().optional(),
     operation: z.literal("heatmap"),
     metric: aggregateMetricSchema,
     xDimension: heatmapDimensionSchema,
@@ -224,6 +238,8 @@ const matrixRequestSchema = z
 
 const explorationRequestSchema = z.object({
   shape: z.literal("exploration"),
+  dataset: datasetSlugSchema.default("uk_price_paid"),
+  datasetVersion: z.number().int().positive().optional(),
   operation: z.literal("exploration"),
   valueField: z.literal("price"),
   dimensions: z
@@ -239,6 +255,14 @@ const explorationRequestSchema = z.object({
   rowLimit: z.literal(1_000_000),
   filters: executableFiltersSchema,
 }).refine(
+  (request) =>
+    request.dataset === "uk_price_paid" ||
+    request.datasetVersion !== undefined,
+  {
+    message: "Registered datasets require an immutable version",
+    path: ["datasetVersion"],
+  },
+).refine(
   (request) => {
     const start = Date.parse(`${request.filters.dateFrom}T00:00:00Z`);
     const end = Date.parse(`${request.filters.dateTo}T00:00:00Z`);
@@ -265,6 +289,14 @@ export const executableAnalysisRequestSchema = z.union([
   matrixRequestSchema,
   explorationRequestSchema,
 ]).superRefine((request, context) => {
+  if (request.dataset !== "uk_price_paid" && request.datasetVersion === undefined) {
+    context.addIssue({
+      code: "custom",
+      message: "Registered datasets require an immutable version",
+      path: ["datasetVersion"],
+    });
+  }
+
   if (
     request.shape === "time_series" &&
     !hasBoundedGeography(request.seriesBy, request.filters)

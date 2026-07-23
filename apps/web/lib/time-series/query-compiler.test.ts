@@ -173,4 +173,28 @@ describe("compileAnalysisQuery", () => {
     expect(compiled.query).not.toContain("Detached");
     expect(compiled.queryParams.explorationSentinel).toBe(1_000_001);
   });
+
+  it("uses a registered mapping without enabling PREWHERE", () => {
+    const request = timeSeriesRequestSchema.parse({
+      shape: "time_series",
+      dataset: "regional_sales",
+      datasetVersion: 3,
+      operation: "trend",
+      metric: "average_price",
+      interval: "year",
+      seriesBy: null,
+      transform: "value",
+      anomalyThreshold: null,
+      filters: { ...filters, location: null },
+    });
+    const compiled = compileAnalysisQuery(request, "prewhere", {
+      fromClause: "(SELECT date, price, town, district, county, type, duration, is_new FROM default.sales) AS lens_source",
+      supportsPrewhere: false,
+    });
+
+    expect(compiled.query).toContain("FROM (SELECT date, price");
+    expect(compiled.query).toContain("WHERE date >=");
+    expect(compiled.query).not.toContain("PREWHERE");
+    expect(compiled.settings.optimize_move_to_prewhere).toBe(0);
+  });
 });

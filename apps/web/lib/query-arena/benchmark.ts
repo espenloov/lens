@@ -3,10 +3,11 @@ import type { Readable } from "node:stream";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
 import { queryTimeSeriesAsArrow } from "@/lib/clickhouse/arrow-stream";
-import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
+import { querySemanticAnalysisAsArrow } from "@/lib/clickhouse/semantic-arrow";
 import { fingerprintArrow } from "@/lib/wasm/node-verifier";
 
 import type {
+  QueryArenaRequest,
   QueryBenchmarkTrial,
   QueryStrategy,
 } from "./contracts";
@@ -52,15 +53,30 @@ async function collectArrowBytes(stream: Readable): Promise<Uint8Array> {
 }
 
 export function benchmarkQueryStrategy(
-  request: TimeSeriesRequest,
+  analysis: QueryArenaRequest,
   strategy: QueryStrategy,
 ): ResultAsync<QueryBenchmarkTrial, QueryBenchmarkError> {
   const startedAt = performance.now();
+  const query =
+    analysis.kind === "time_series"
+      ? queryTimeSeriesAsArrow(analysis.request, {
+          strategy,
+          benchmark: true,
+        }).map((response) => ({
+          stream: response.stream,
+          queryId: response.queryId,
+          summary: response.summary,
+        }))
+      : querySemanticAnalysisAsArrow(analysis.request, {
+          strategy,
+          benchmark: true,
+        }).map((response) => ({
+          stream: response.stream,
+          queryId: response.queryId,
+          summary: response.summary,
+        }));
 
-  return queryTimeSeriesAsArrow(request, {
-    strategy,
-    benchmark: true,
-  })
+  return query
     .mapErr((error) => ({
       type: "query_failed" as const,
       message: error.message,

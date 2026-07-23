@@ -3,7 +3,10 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { fingerprintArrow } from "./node-verifier";
+import {
+  fingerprintArrow,
+  verifyAnalyticalArrow,
+} from "./node-verifier";
 
 describe("fingerprintArrow", () => {
   it("runs the Rust verifier inside Node", () => {
@@ -25,5 +28,48 @@ describe("fingerprintArrow", () => {
         rowCount: 9,
       });
     }
+  });
+});
+
+describe("verifyAnalyticalArrow", () => {
+  it("binds time, measure, and dimension roles through the generic Rust engine", () => {
+    const bytes = readFileSync(
+      path.resolve(
+        process.cwd(),
+        "../../crates/lens-core/tests/fixtures/leeds-bristol-monthly-volume.arrow",
+      ),
+    );
+    const result = verifyAnalyticalArrow(bytes, {
+      time: "period_start",
+      measure: "value",
+      dimension: "series",
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({ rowCount: 96 });
+  });
+
+  it("supports a table without a time role and rejects unknown manifest roles", () => {
+    const bytes = readFileSync(
+      path.resolve(
+        process.cwd(),
+        "../../crates/lens-core/tests/fixtures/leeds-bristol-monthly-volume.arrow",
+      ),
+    );
+
+    expect(
+      verifyAnalyticalArrow(bytes, {
+        time: null,
+        measure: "value",
+        dimension: "series",
+      }).isOk(),
+    ).toBe(true);
+    expect(
+      verifyAnalyticalArrow(bytes, {
+        time: null,
+        measure: "value); DROP TABLE trips; --",
+        dimension: "series",
+      }).isErr(),
+    ).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import {
   type ExecutableAnalysisRequest,
 } from "@/lib/analysis/execution";
 import { queryAnalysisAsArrow } from "@/lib/clickhouse/analysis-arrow";
+import { authorizeDataSourceRead } from "@/lib/data-sources/access";
 
 export const runtime = "nodejs";
 
@@ -53,6 +54,14 @@ export async function POST(request: Request): Promise<Response> {
       },
       { status: 400 },
     );
+  }
+
+  if (input.value.dataset !== "uk_price_paid") {
+    const access = authorizeDataSourceRead(request);
+
+    if (access.isErr()) {
+      return Response.json(access.error, { status: access.error.status });
+    }
   }
 
   const result = await queryAnalysisAsArrow(input.value);

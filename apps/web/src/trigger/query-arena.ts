@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   queryArenaResultSchema,
+  queryArenaRequestSchema,
   queryStrategySchema,
   strategyBenchmarkSchema,
   type QueryStrategy,
@@ -15,7 +16,6 @@ import {
 } from "@/lib/query-arena/history";
 import { promoteRecipe } from "@/lib/query-arena/recipe-registry";
 import { evaluateQueryArena, benchmarkTime } from "@/lib/query-arena/result";
-import { queryArenaTimeSeriesRequestSchema } from "@/lib/time-series/contracts";
 
 const STRATEGIES = queryStrategySchema.options;
 const TRIAL_COUNT = 3;
@@ -23,17 +23,17 @@ const TRIAL_COUNT = 3;
 const queryArenaPayloadSchema = z.object({
   arenaId: z.uuid(),
   signature: z.string().regex(/^[a-f0-9]{64}$/),
-  request: queryArenaTimeSeriesRequestSchema,
+  analysis: queryArenaRequestSchema,
 });
 
 async function runStrategy(
-  request: z.infer<typeof queryArenaTimeSeriesRequestSchema>,
+  analysis: z.infer<typeof queryArenaRequestSchema>,
   strategy: QueryStrategy,
 ): Promise<StrategyBenchmark> {
   const trials = [];
 
   for (let trial = 0; trial < TRIAL_COUNT; trial += 1) {
-    const benchmark = await benchmarkQueryStrategy(request, strategy);
+    const benchmark = await benchmarkQueryStrategy(analysis, strategy);
 
     if (benchmark.isErr()) {
       throw new Error(benchmark.error.message, {
@@ -99,7 +99,7 @@ export const queryArenaTask = schemaTask({
     maxAttempts: 1,
   },
 
-  run: async ({ arenaId, signature, request }) => {
+  run: async ({ analysis, arenaId, signature }) => {
     await metadata
       .set("phase", "racing")
       .set("progress", 0.2)
@@ -113,7 +113,7 @@ export const queryArenaTask = schemaTask({
         try {
           return {
             ok: true as const,
-            output: await runStrategy(request, strategy),
+            output: await runStrategy(analysis, strategy),
           };
         } catch (error) {
           await metadata

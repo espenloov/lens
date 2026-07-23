@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
-
 import {
   queryArenaSnapshotSchema,
+  type QueryArenaRequest,
   type QueryArenaSnapshot,
 } from "./contracts";
 import {
@@ -14,14 +13,14 @@ import {
   type QueryArenaClientError,
 } from "./client";
 
-export function useQueryArena(request: TimeSeriesRequest) {
+export function useQueryArena(analysis: QueryArenaRequest) {
   const [snapshot, setSnapshot] = useState<QueryArenaSnapshot | null>(null);
   const [streamError, setStreamError] = useState<QueryArenaClientError | null>(
     null,
   );
   const start = useQuery({
-    queryKey: ["query-arena", request],
-    queryFn: async () => startQueryArena(request),
+    queryKey: ["query-arena", analysis],
+    queryFn: async () => startQueryArena(analysis),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });

@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
 import { AnalysisResult } from "@/components/analysis/analysis-result";
+import { AnalysisFailureNotice } from "@/components/analysis/analysis-failure-notice";
+import { SemanticAnalysisResult } from "@/components/analysis/semantic-analysis-result";
+import { parseSemanticAnalysisToolOutput } from "@/lib/analysis/semantic-tool-output";
 import { parseAnalysisToolOutput } from "@/lib/analysis/tool-output";
 import type { PropertyAgentUIMessage } from "@/src/trigger/property-agent";
 
@@ -43,6 +46,56 @@ export function MessagePart({ part, role }: MessagePartProps) {
     );
   }
 
+  if (part.type === "tool-submitSemanticAnalysisPlan") {
+    switch (part.state) {
+      case "input-streaming":
+        return <ToolStatus>Preparing the dataset analysis…</ToolStatus>;
+
+      case "input-available":
+      case "approval-requested":
+      case "approval-responded":
+        return <ToolStatus>Validating the dataset grammar…</ToolStatus>;
+
+      case "output-available": {
+        const output = parseSemanticAnalysisToolOutput(part.output);
+
+        if (!output.success) {
+          return (
+            <AnalysisFailureNotice
+              message="Lens received a semantic result it could not safely display."
+              stage="agent"
+            >
+              <p className="text-sm text-destructive">
+                Lens received a semantic result it could not safely display.
+              </p>
+            </AnalysisFailureNotice>
+          );
+        }
+
+        return <SemanticAnalysisResult output={output.data} />;
+      }
+
+      case "output-error":
+        return (
+          <AnalysisFailureNotice
+            message="The dataset analysis task failed."
+            stage="agent"
+          >
+            <p className="text-sm text-destructive">
+              The dataset analysis failed. Please try again.
+            </p>
+          </AnalysisFailureNotice>
+        );
+
+      case "output-denied":
+        return (
+          <p className="text-sm text-muted-foreground">
+            The dataset analysis was not run.
+          </p>
+        );
+    }
+  }
+
   if (part.type !== "tool-submitAnalysisPlan") {
     return null;
   }
@@ -61,9 +114,14 @@ export function MessagePart({ part, role }: MessagePartProps) {
 
       if (!output.success) {
         return (
-          <p className="glass-panel rounded-2xl p-4 text-sm text-destructive" role="alert">
-            Lens received an analysis result it could not safely display.
-          </p>
+          <AnalysisFailureNotice
+            message="Lens received an analysis result it could not safely display."
+            stage="agent"
+          >
+            <p className="text-sm text-destructive">
+              Lens received an analysis result it could not safely display.
+            </p>
+          </AnalysisFailureNotice>
         );
       }
 
@@ -72,9 +130,14 @@ export function MessagePart({ part, role }: MessagePartProps) {
 
     case "output-error":
       return (
-        <p className="glass-panel rounded-2xl p-4 text-sm text-destructive" role="alert">
-          The property analysis failed. Please try again.
-        </p>
+        <AnalysisFailureNotice
+          message="The property analysis task failed."
+          stage="agent"
+        >
+          <p className="text-sm text-destructive">
+            The property analysis failed. Please try again.
+          </p>
+        </AnalysisFailureNotice>
       );
 
     case "output-denied":

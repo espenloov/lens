@@ -1,11 +1,23 @@
 import type { QueryStrategy } from "../query-arena/contracts";
+import { PROPERTY_TRANSACTION_MANIFEST } from "../data-sources/property-manifest";
+import {
+  compileMeasureAggregation,
+  findAnalyticalDimension,
+  findAnalyticalMeasure,
+  type AnalyticalDimension,
+  type AnalyticalTableManifest,
+} from "../data-sources/semantic";
 
 import type {
   AggregateMetric,
-  CategoricalDimension,
-  CompactDimension,
   TimeInterval,
 } from "./contracts";
+import {
+  validateSemanticAnalysisPlan,
+  type SemanticAnalysisPlan,
+  type SemanticFilters,
+  type SemanticMetricReference,
+} from "./semantic-plan";
 import type {
   CategoricalRequest,
   ExecutableAnalysisRequest,
@@ -16,53 +28,23 @@ import type {
   ExplorationRequest,
 } from "./execution";
 
-const PERIOD_EXPRESSIONS: Record<TimeInterval, string> = {
-  year: "toDate(toStartOfYear(date))",
-  quarter: "toDate(toStartOfQuarter(date))",
-  month: "toDate(toStartOfMonth(date))",
-};
-
-const PROPERTY_TYPE_EXPRESSION = `multiIf(
-  type = 'detached', 'Detached',
-  type = 'semi-detached', 'Semi-detached',
-  type = 'terraced', 'Terraced',
-  type = 'flat', 'Flat',
-  'Other'
-)`;
-
-const TENURE_EXPRESSION = `multiIf(
-  duration = 'freehold', 'Freehold',
-  duration = 'leasehold', 'Leasehold',
-  'Unknown'
-)`;
-
-const NEW_BUILD_EXPRESSION = "if(is_new = 1, 'New build', 'Existing')";
-
-const EXPLORATION_DIMENSION_EXPRESSIONS: Record<CompactDimension, string> = {
-  property_type: `multiIf(type = 'detached', 0, type = 'semi-detached', 1, type = 'terraced', 2, type = 'flat', 3, 4)`,
-  tenure: `multiIf(duration = 'freehold', 0, duration = 'leasehold', 1, 2)`,
-  new_build: "if(is_new = 1, 1, 0)",
-};
-
-const DIMENSION_EXPRESSIONS: Record<CategoricalDimension, string> = {
-  town: "toString(town)",
-  district: "toString(district)",
-  county: "toString(county)",
-  property_type: PROPERTY_TYPE_EXPRESSION,
-  tenure: TENURE_EXPRESSION,
-  new_build: NEW_BUILD_EXPRESSION,
-};
-
-const COMPACT_DIMENSION_ORDER: Record<CompactDimension, string> = {
-  property_type: `multiIf(type = 'detached', 1, type = 'semi-detached', 2, type = 'terraced', 3, type = 'flat', 4, 5)`,
-  tenure: `multiIf(duration = 'freehold', 1, duration = 'leasehold', 2, 3)`,
-  new_build: "if(is_new = 1, 1, 2)",
-};
-
-const METRIC_EXPRESSIONS: Record<AggregateMetric, string> = {
-  average_price: "toFloat64(round(avg(price)))",
-  median_price: "toFloat64(round(quantileTDigest(0.5)(price)))",
-  transaction_count: "toFloat64(count())",
+const LEGACY_METRIC_REFERENCES: Record<
+  AggregateMetric,
+  SemanticMetricReference
+> = {
+  average_price: {
+    kind: "measure",
+    measure: "price",
+    aggregation: "average",
+  },
+  median_price: {
+    kind: "measure",
+    measure: "price",
+    aggregation: "median",
+  },
+  transaction_count: {
+    kind: "row_count",
+  },
 };
 
 export type AnalysisQueryParams = Record<
@@ -81,15 +63,107 @@ export type CompiledAnalysisQuery = {
   };
 };
 
+export type AnalysisQuerySource = {
+  readonly fromClause: string;
+  readonly supportsPrewhere: boolean;
+  readonly manifest?: AnalyticalTableManifest;
+};
+
+export const BUILTIN_QUERY_SOURCE: AnalysisQuerySource = {
+  fromClause: "pp_complete",
+  supportsPrewhere: true,
+  manifest: PROPERTY_TRANSACTION_MANIFEST,
+};
+
 type CompiledFilters = {
   readonly sql: string;
   readonly params: AnalysisQueryParams;
 };
 
-function compileFilters(filters: ExecutableFilters): CompiledFilters {
+function sourceManifest(source: AnalysisQuerySource): AnalyticalTableManifest {
+  return source.manifest ?? PROPERTY_TRANSACTION_MANIFEST;
+}
+
+function requireTime(manifest: AnalyticalTableManifest) {
+  if (manifest.time === null) {
+    throw new Error("The analytical source does not declare a time field");
+  }
+
+  return manifest.time;
+}
+
+function requireMeasure(manifest: AnalyticalTableManifest, key: string) {
+  const measure = findAnalyticalMeasure(manifest, key);
+
+  if (measure === null) {
+    throw new Error(`The analytical source does not declare measure ${key}`);
+  }
+
+  return measure;
+}
+
+function requireDimension(
+  manifest: AnalyticalTableManifest,
+  key: string,
+): AnalyticalDimension {
+  const dimension = findAnalyticalDimension(manifest, key);
+
+  if (dimension === null) {
+    throw new Error(`The analytical source does not declare dimension ${key}`);
+  }
+
+  return dimension;
+}
+
+export function compileSemanticMetric(
+  manifest: AnalyticalTableManifest,
+  reference: SemanticMetricReference,
+): string {
+  return reference.kind === "row_count"
+    ? "toFloat64(count())"
+    : compileMeasureAggregation(
+        requireMeasure(manifest, reference.measure),
+        reference.aggregation,
+      );
+}
+
+function metricExpression(
+  manifest: AnalyticalTableManifest,
+  metric: AggregateMetric,
+): string {
+  return compileSemanticMetric(manifest, LEGACY_METRIC_REFERENCES[metric]);
+}
+
+function periodExpression(
+  manifest: AnalyticalTableManifest,
+  interval: TimeInterval,
+): string {
+  const time = requireTime(manifest);
+
+  if (!time.granularities.includes(interval)) {
+    throw new Error(
+      `The analytical source does not support ${interval} time buckets`,
+    );
+  }
+
+  switch (interval) {
+    case "year":
+      return `toDate(toStartOfYear(${time.expression}))`;
+    case "quarter":
+      return `toDate(toStartOfQuarter(${time.expression}))`;
+    case "month":
+      return `toDate(toStartOfMonth(${time.expression}))`;
+  }
+}
+
+function compileFilters(
+  filters: ExecutableFilters,
+  manifest: AnalyticalTableManifest,
+): CompiledFilters {
+  const time = requireTime(manifest);
   const clauses = [
-    "date >= {dateFrom: Date}",
-    "date <= {dateTo: Date}",
+    `${time.expression} >= {dateFrom: Date}`,
+    `${time.expression} <= {dateTo: Date}`,
   ];
   const params: AnalysisQueryParams = {
     dateFrom: filters.dateFrom,
@@ -97,34 +171,42 @@ function compileFilters(filters: ExecutableFilters): CompiledFilters {
   };
 
   if (filters.location !== null) {
+    const location = requireDimension(manifest, filters.location.level);
     clauses.push(
-      `${filters.location.level} IN {locations: Array(String)}`,
+      `${location.filterExpression} IN {locations: Array(String)}`,
     );
     params.locations = filters.location.values;
   }
 
   if (filters.propertyTypes.length > 0) {
-    clauses.push("type IN {propertyTypes: Array(String)}");
+    const propertyType = requireDimension(manifest, "property_type");
+    clauses.push(
+      `${propertyType.filterExpression} IN {propertyTypes: Array(String)}`,
+    );
     params.propertyTypes = filters.propertyTypes;
   }
 
   if (filters.newBuild !== null) {
-    clauses.push("is_new = {newBuild: UInt8}");
+    const newBuild = requireDimension(manifest, "new_build");
+    clauses.push(`${newBuild.filterExpression} = {newBuild: UInt8}`);
     params.newBuild = filters.newBuild ? 1 : 0;
   }
 
   if (filters.tenure.length > 0) {
-    clauses.push("duration IN {tenure: Array(String)}");
+    const tenure = requireDimension(manifest, "tenure");
+    clauses.push(`${tenure.filterExpression} IN {tenure: Array(String)}`);
     params.tenure = filters.tenure;
   }
 
   if (filters.minimumPrice !== null) {
-    clauses.push("price >= {minimumPrice: UInt64}");
+    const price = requireMeasure(manifest, "price");
+    clauses.push(`${price.expression} >= {minimumPrice: UInt64}`);
     params.minimumPrice = filters.minimumPrice;
   }
 
   if (filters.maximumPrice !== null) {
-    clauses.push("price <= {maximumPrice: UInt64}");
+    const price = requireMeasure(manifest, "price");
+    clauses.push(`${price.expression} <= {maximumPrice: UInt64}`);
     params.maximumPrice = filters.maximumPrice;
   }
 
@@ -137,15 +219,18 @@ function compileFilters(filters: ExecutableFilters): CompiledFilters {
 function compileTimeSeries(
   request: GrammarTimeSeriesRequest,
   strategy: QueryStrategy,
+  source: AnalysisQuerySource,
 ): CompiledAnalysisQuery {
-  const filters = compileFilters(request.filters);
-  const period = PERIOD_EXPRESSIONS[request.interval];
+  const manifest = sourceManifest(source);
+  const filters = compileFilters(request.filters, manifest);
+  const period = periodExpression(manifest, request.interval);
   const series =
     request.seriesBy === null
       ? "'All transactions'"
-      : DIMENSION_EXPRESSIONS[request.seriesBy];
-  const metric = METRIC_EXPRESSIONS[request.metric];
-  const filterKeyword = strategy === "prewhere" ? "PREWHERE" : "WHERE";
+      : requireDimension(manifest, request.seriesBy).expression;
+  const metric = metricExpression(manifest, request.metric);
+  const usePrewhere = strategy === "prewhere" && source.supportsPrewhere;
+  const filterKeyword = usePrewhere ? "PREWHERE" : "WHERE";
 
   return {
     shape: "time_series",
@@ -155,7 +240,7 @@ function compileTimeSeries(
         toString(${series}) AS series,
         ${metric} AS value,
         toUInt64(count()) AS observation_count
-      FROM pp_complete
+      FROM ${source.fromClause}
       ${filterKeyword} ${filters.sql}
       GROUP BY period_start, series
       ORDER BY period_start ASC, series ASC
@@ -163,7 +248,7 @@ function compileTimeSeries(
     `,
     queryParams: filters.params,
     settings: {
-      optimize_move_to_prewhere: strategy === "prewhere" ? 1 : 0,
+      optimize_move_to_prewhere: usePrewhere ? 1 : 0,
       max_result_rows: "2000",
       max_rows_to_group_by: "2000",
     },
@@ -172,10 +257,15 @@ function compileTimeSeries(
 
 function compileCategorical(
   request: CategoricalRequest,
+  source: AnalysisQuerySource,
 ): CompiledAnalysisQuery {
-  const filters = compileFilters(request.filters);
-  const dimension = DIMENSION_EXPRESSIONS[request.dimension];
-  const metric = METRIC_EXPRESSIONS[request.metric];
+  const manifest = sourceManifest(source);
+  const filters = compileFilters(request.filters, manifest);
+  const dimension = requireDimension(
+    manifest,
+    request.dimension,
+  ).expression;
+  const metric = metricExpression(manifest, request.metric);
   const direction = request.order === "ascending" ? "ASC" : "DESC";
   const minimumObservations =
     request.operation === "ranking" && request.metric !== "transaction_count"
@@ -193,7 +283,7 @@ function compileCategorical(
         toString(${dimension}) AS category,
         ${metric} AS value,
         toUInt64(count()) AS observation_count
-      FROM pp_complete
+      FROM ${source.fromClause}
       WHERE ${filters.sql}
       GROUP BY category
       ${having}
@@ -207,26 +297,37 @@ function compileCategorical(
       ...(request.operation === "ranking" ? { minimumObservations } : {}),
     },
     settings: {
-      optimize_move_to_prewhere: 1,
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
       max_result_rows: "50",
       max_rows_to_group_by: "100000",
     },
   };
 }
 
-function compileHistogram(request: HistogramRequest): CompiledAnalysisQuery {
-  const filters = compileFilters(request.filters);
+function compileHistogram(
+  request: HistogramRequest,
+  source: AnalysisQuerySource,
+): CompiledAnalysisQuery {
+  const manifest = sourceManifest(source);
+  const filters = compileFilters(request.filters, manifest);
+  const valueMeasure = requireMeasure(manifest, request.field);
   const minimum = request.filters.minimumPrice ?? 0;
   const series =
     request.splitBy === null
       ? "'All transactions'"
-      : DIMENSION_EXPRESSIONS[request.splitBy];
+      : requireDimension(manifest, request.splitBy).expression;
+
+  if (!valueMeasure.supportsDistribution) {
+    throw new Error(
+      `Measure ${valueMeasure.key} does not support distributions`,
+    );
+  }
 
   return {
     shape: "histogram",
     query: `
       WITH least(
-        intDiv(greatest(toInt64(price) - {histogramMinimum: Int64}, 0), {bucketWidth: UInt64}),
+        intDiv(greatest(toInt64(${valueMeasure.expression}) - {histogramMinimum: Int64}, 0), {bucketWidth: UInt64}),
         {lastBin: UInt64}
       ) AS bin_index
       SELECT
@@ -235,7 +336,7 @@ function compileHistogram(request: HistogramRequest): CompiledAnalysisQuery {
         toString(${series}) AS series,
         toFloat64(count()) AS value,
         toUInt64(count()) AS observation_count
-      FROM pp_complete
+      FROM ${source.fromClause}
       WHERE ${filters.sql}
       GROUP BY bin_index, series
       ORDER BY bin_index ASC, series ASC
@@ -248,7 +349,7 @@ function compileHistogram(request: HistogramRequest): CompiledAnalysisQuery {
       lastBin: request.maximumBins - 1,
     },
     settings: {
-      optimize_move_to_prewhere: 1,
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
       max_result_rows: String(request.maximumBins * 5),
       max_rows_to_group_by: String(request.maximumBins * 5),
     },
@@ -257,41 +358,59 @@ function compileHistogram(request: HistogramRequest): CompiledAnalysisQuery {
 
 type MatrixDimension = MatrixRequest["xDimension"];
 
-function matrixDimension(dimension: MatrixDimension): {
+function matrixDimension(
+  dimension: MatrixDimension,
+  manifest: AnalyticalTableManifest,
+): {
   readonly label: string;
   readonly order: string;
 } {
+  const time = requireTime(manifest);
+
   switch (dimension) {
     case "year":
       return {
-        label: "toString(toYear(date))",
-        order: "toInt32(toYear(date))",
+        label: `toString(toYear(${time.expression}))`,
+        order: `toInt32(toYear(${time.expression}))`,
       };
     case "quarter_of_year":
       return {
-        label: "concat('Q', toString(toQuarter(date)))",
-        order: "toInt32(toQuarter(date))",
+        label: `concat('Q', toString(toQuarter(${time.expression})))`,
+        order: `toInt32(toQuarter(${time.expression}))`,
       };
     case "month_of_year":
       return {
-        label: "formatDateTime(date, '%b')",
-        order: "toInt32(toMonth(date))",
+        label: `formatDateTime(${time.expression}, '%b')`,
+        order: `toInt32(toMonth(${time.expression}))`,
       };
     case "property_type":
     case "tenure":
-    case "new_build":
+    case "new_build": {
+      const resolved = requireDimension(manifest, dimension);
+
+      if (resolved.orderExpression === null) {
+        throw new Error(
+          `Dimension ${dimension} does not declare a stable matrix order`,
+        );
+      }
+
       return {
-        label: DIMENSION_EXPRESSIONS[dimension],
-        order: COMPACT_DIMENSION_ORDER[dimension],
+        label: resolved.expression,
+        order: resolved.orderExpression,
       };
+    }
   }
 }
 
-function compileMatrix(request: MatrixRequest): CompiledAnalysisQuery {
-  const filters = compileFilters(request.filters);
-  const x = matrixDimension(request.xDimension);
-  const y = matrixDimension(request.yDimension);
-  const metric = METRIC_EXPRESSIONS[request.metric];
+function compileMatrix(
+  request: MatrixRequest,
+  source: AnalysisQuerySource,
+): CompiledAnalysisQuery {
+  const manifest = sourceManifest(source);
+  const filters = compileFilters(request.filters, manifest);
+  const x = matrixDimension(request.xDimension, manifest);
+  const y = matrixDimension(request.yDimension, manifest);
+  const metric = metricExpression(manifest, request.metric);
 
   return {
     shape: "matrix",
@@ -303,7 +422,7 @@ function compileMatrix(request: MatrixRequest): CompiledAnalysisQuery {
         toInt32(${y.order}) AS y_order,
         ${metric} AS value,
         toUInt64(count()) AS observation_count
-      FROM pp_complete
+      FROM ${source.fromClause}
       WHERE ${filters.sql}
       GROUP BY x, x_order, y, y_order
       ORDER BY x_order ASC, y_order ASC
@@ -311,7 +430,7 @@ function compileMatrix(request: MatrixRequest): CompiledAnalysisQuery {
     `,
     queryParams: filters.params,
     settings: {
-      optimize_move_to_prewhere: 1,
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
       max_result_rows: "1600",
       max_rows_to_group_by: "1600",
     },
@@ -321,30 +440,52 @@ function compileMatrix(request: MatrixRequest): CompiledAnalysisQuery {
 function explorationDimension(
   request: ExplorationRequest,
   index: number,
+  manifest: AnalyticalTableManifest,
 ): string {
   const dimension = request.dimensions[index];
 
-  return dimension === undefined
-    ? "toUInt8(0)"
-    : `toUInt8(${EXPLORATION_DIMENSION_EXPRESSIONS[dimension]})`;
+  if (dimension === undefined) {
+    return "toUInt8(0)";
+  }
+
+  const resolved = requireDimension(manifest, dimension);
+
+  if (!resolved.compact || resolved.codeExpression === null) {
+    throw new Error(
+      `Dimension ${dimension} cannot be encoded for local exploration`,
+    );
+  }
+
+  return `toUInt8(${resolved.codeExpression})`;
 }
 
 function compileExploration(
   request: ExplorationRequest,
+  source: AnalysisQuerySource,
 ): CompiledAnalysisQuery {
-  const filters = compileFilters(request.filters);
+  const manifest = sourceManifest(source);
+  const filters = compileFilters(request.filters, manifest);
+  const time = requireTime(manifest);
+  const valueMeasure = requireMeasure(manifest, request.valueField);
+  const filterKeyword = source.supportsPrewhere ? "PREWHERE" : "WHERE";
+
+  if (!valueMeasure.supportsDistribution) {
+    throw new Error(
+      `Measure ${valueMeasure.key} cannot back an exploration workspace`,
+    );
+  }
 
   return {
     shape: "exploration",
     query: `
       SELECT
-        toUInt16(dateDiff('day', {dateFrom: Date}, date)) AS day_index,
-        toFloat64(price) AS value,
-        ${explorationDimension(request, 0)} AS dimension_0,
-        ${explorationDimension(request, 1)} AS dimension_1,
-        ${explorationDimension(request, 2)} AS dimension_2
-      FROM pp_complete
-      PREWHERE ${filters.sql}
+        toUInt16(dateDiff('day', {dateFrom: Date}, ${time.expression})) AS day_index,
+        toFloat64(${valueMeasure.expression}) AS value,
+        ${explorationDimension(request, 0, manifest)} AS dimension_0,
+        ${explorationDimension(request, 1, manifest)} AS dimension_1,
+        ${explorationDimension(request, 2, manifest)} AS dimension_2
+      FROM ${source.fromClause}
+      ${filterKeyword} ${filters.sql}
       LIMIT {explorationSentinel: UInt64}
       FORMAT ArrowStream
     `,
@@ -353,24 +494,27 @@ function compileExploration(
       explorationSentinel: request.rowLimit + 1,
     },
     settings: {
-      optimize_move_to_prewhere: 1,
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
       max_result_rows: String(request.rowLimit + 1),
       max_rows_to_group_by: "1",
     },
   };
 }
 
-export function compileExplorationCountQuery(request: ExplorationRequest): {
+export function compileExplorationCountQuery(
+  request: ExplorationRequest,
+  source: AnalysisQuerySource = BUILTIN_QUERY_SOURCE,
+): {
   readonly query: string;
   readonly queryParams: AnalysisQueryParams;
 } {
-  const filters = compileFilters(request.filters);
+  const filters = compileFilters(request.filters, sourceManifest(source));
 
   return {
     query: `
       SELECT toUInt64(count()) AS row_count
-      FROM pp_complete
-      PREWHERE ${filters.sql}
+      FROM ${source.fromClause}
+      ${source.supportsPrewhere ? "PREWHERE" : "WHERE"} ${filters.sql}
     `,
     queryParams: filters.params,
   };
@@ -379,17 +523,261 @@ export function compileExplorationCountQuery(request: ExplorationRequest): {
 export function compileAnalysisQuery(
   request: ExecutableAnalysisRequest,
   strategy: QueryStrategy = "baseline",
+  source: AnalysisQuerySource = BUILTIN_QUERY_SOURCE,
 ): CompiledAnalysisQuery {
   switch (request.shape) {
     case "time_series":
-      return compileTimeSeries(request, strategy);
+      return compileTimeSeries(request, strategy, source);
     case "categorical":
-      return compileCategorical(request);
+      return compileCategorical(request, source);
     case "histogram":
-      return compileHistogram(request);
+      return compileHistogram(request, source);
     case "matrix":
-      return compileMatrix(request);
+      return compileMatrix(request, source);
     case "exploration":
-      return compileExploration(request);
+      return compileExploration(request, source);
+  }
+}
+
+function semanticFilterValue(value: string | number | boolean): string {
+  return typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+}
+
+function compileSemanticFilters(
+  filters: SemanticFilters,
+  manifest: AnalyticalTableManifest,
+): CompiledFilters {
+  const clauses: string[] = [];
+  const params: AnalysisQueryParams = {};
+
+  if (filters.timeRange !== null) {
+    const time = requireTime(manifest);
+    clauses.push(`${time.expression} >= {semanticDateFrom: Date}`);
+    clauses.push(
+      time.storageType === "datetime"
+        ? `${time.expression} < addDays({semanticDateTo: Date}, 1)`
+        : `${time.expression} <= {semanticDateTo: Date}`,
+    );
+    params.semanticDateFrom = filters.timeRange.from;
+    params.semanticDateTo = filters.timeRange.to;
+  }
+
+  filters.dimensions.forEach((filter, index) => {
+    const dimension = requireDimension(manifest, filter.dimension);
+    const parameter = `semanticDimension${index}`;
+    clauses.push(
+      `toString(${dimension.filterExpression}) IN {${parameter}: Array(String)}`,
+    );
+    params[parameter] = filter.values.map(semanticFilterValue);
+  });
+
+  filters.measures.forEach((filter, index) => {
+    const measure = requireMeasure(manifest, filter.measure);
+
+    if (filter.minimum !== null) {
+      const parameter = `semanticMinimum${index}`;
+      clauses.push(`${measure.expression} >= {${parameter}: Float64}`);
+      params[parameter] = filter.minimum;
+    }
+
+    if (filter.maximum !== null) {
+      const parameter = `semanticMaximum${index}`;
+      clauses.push(`${measure.expression} <= {${parameter}: Float64}`);
+      params[parameter] = filter.maximum;
+    }
+  });
+
+  return {
+    sql: clauses.length === 0 ? "1" : clauses.join("\n        AND "),
+    params,
+  };
+}
+
+function compileSemanticTimeSeries(
+  plan: Extract<
+    SemanticAnalysisPlan,
+    { operation: "trend" | "comparison" | "composition" | "anomaly" }
+  >,
+  source: AnalysisQuerySource,
+  strategy: QueryStrategy,
+): CompiledAnalysisQuery {
+  const manifest = sourceManifest(source);
+  const filters = compileSemanticFilters(plan.filters, manifest);
+  const interval = plan.interval;
+
+  if (interval === null) {
+    throw new Error("Time-series analysis requires a time interval");
+  }
+
+  const period = periodExpression(manifest, interval);
+  const seriesKey =
+    plan.operation === "comparison"
+      ? plan.compareBy
+      : plan.operation === "composition"
+        ? plan.dimension
+        : plan.splitBy;
+  const series =
+    seriesKey === null
+      ? "'All rows'"
+      : requireDimension(manifest, seriesKey).expression;
+  const metric =
+    plan.operation === "composition"
+      ? compileSemanticMetric(manifest, { kind: "row_count" })
+      : compileSemanticMetric(manifest, plan.metric);
+  const optimized = strategy === "prewhere";
+  const filterKeyword =
+    optimized && source.supportsPrewhere ? "PREWHERE" : "WHERE";
+
+  return {
+    shape: "time_series",
+    query: `
+      SELECT
+        ${period} AS period_start,
+        toString(${series}) AS series,
+        ${metric} AS value,
+        toUInt64(count()) AS observation_count
+      FROM ${source.fromClause}
+      ${filterKeyword} ${filters.sql}
+      GROUP BY period_start, series
+      ORDER BY period_start ASC, series ASC
+      FORMAT ArrowStream
+    `,
+    queryParams: filters.params,
+    settings: {
+      optimize_move_to_prewhere: optimized ? 1 : 0,
+      max_result_rows: "5000",
+      max_rows_to_group_by: "5000",
+    },
+  };
+}
+
+function compileSemanticCategorical(
+  plan: Extract<
+    SemanticAnalysisPlan,
+    { operation: "comparison" | "ranking" | "composition" }
+  >,
+  source: AnalysisQuerySource,
+): CompiledAnalysisQuery {
+  const manifest = sourceManifest(source);
+  const filters = compileSemanticFilters(plan.filters, manifest);
+  const dimensionKey =
+    plan.operation === "comparison"
+      ? plan.compareBy
+      : plan.operation === "ranking"
+        ? plan.rankBy
+        : plan.dimension;
+  const dimension = requireDimension(manifest, dimensionKey);
+  const metric =
+    plan.operation === "composition"
+      ? compileSemanticMetric(manifest, { kind: "row_count" })
+      : compileSemanticMetric(manifest, plan.metric);
+  const order = plan.operation === "ranking" ? plan.order : "descending";
+  const limit = plan.operation === "ranking" ? plan.limit : 50;
+
+  return {
+    shape: "categorical",
+    query: `
+      SELECT
+        toString(${dimension.expression}) AS category,
+        ${metric} AS value,
+        toUInt64(count()) AS observation_count
+      FROM ${source.fromClause}
+      WHERE ${filters.sql}
+      GROUP BY category
+      ORDER BY value ${order === "ascending" ? "ASC" : "DESC"}, category ASC
+      LIMIT {semanticLimit: UInt64}
+      FORMAT ArrowStream
+    `,
+    queryParams: {
+      ...filters.params,
+      semanticLimit: limit,
+    },
+    settings: {
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
+      max_result_rows: "50",
+      max_rows_to_group_by: "100000",
+    },
+  };
+}
+
+function compileSemanticDistribution(
+  plan: Extract<SemanticAnalysisPlan, { operation: "distribution" }>,
+  source: AnalysisQuerySource,
+): CompiledAnalysisQuery {
+  const manifest = sourceManifest(source);
+  const filters = compileSemanticFilters(plan.filters, manifest);
+  const measure = requireMeasure(manifest, plan.measure);
+  const series =
+    plan.splitBy === null
+      ? "'All rows'"
+      : requireDimension(manifest, plan.splitBy).expression;
+  const minimum = plan.bucketMinimum;
+
+  return {
+    shape: "histogram",
+    query: `
+      WITH least(
+        toUInt64(floor(
+          greatest(toFloat64(${measure.expression}) - {semanticHistogramMinimum: Float64}, 0)
+          / {semanticBucketWidth: Float64}
+        )),
+        {semanticLastBin: UInt64}
+      ) AS bin_index
+      SELECT
+        toFloat64({semanticHistogramMinimum: Float64} + bin_index * {semanticBucketWidth: Float64}) AS bin_start,
+        toFloat64({semanticHistogramMinimum: Float64} + (bin_index + 1) * {semanticBucketWidth: Float64}) AS bin_end,
+        toString(${series}) AS series,
+        toFloat64(count()) AS value,
+        toUInt64(count()) AS observation_count
+      FROM ${source.fromClause}
+      WHERE ${filters.sql}
+      GROUP BY bin_index, series
+      ORDER BY bin_index ASC, series ASC
+      FORMAT ArrowStream
+    `,
+    queryParams: {
+      ...filters.params,
+      semanticHistogramMinimum: minimum,
+      semanticBucketWidth: plan.bucketWidth,
+      semanticLastBin: plan.maximumBins - 1,
+    },
+    settings: {
+      optimize_move_to_prewhere: source.supportsPrewhere ? 1 : 0,
+      max_result_rows: String(plan.maximumBins * 50),
+      max_rows_to_group_by: String(plan.maximumBins * 50),
+    },
+  };
+}
+
+export function compileSemanticAnalysisQuery(
+  plan: SemanticAnalysisPlan,
+  source: AnalysisQuerySource,
+  strategy: QueryStrategy = "baseline",
+): CompiledAnalysisQuery {
+  const validated = validateSemanticAnalysisPlan(
+    plan,
+    sourceManifest(source),
+  );
+
+  if (validated.isErr()) {
+    throw new Error(validated.error.message);
+  }
+
+  switch (plan.operation) {
+    case "trend":
+    case "anomaly":
+      return compileSemanticTimeSeries(plan, source, strategy);
+    case "comparison":
+      return plan.interval === null
+        ? compileSemanticCategorical(plan, source)
+        : compileSemanticTimeSeries(plan, source, strategy);
+    case "ranking":
+      return compileSemanticCategorical(plan, source);
+    case "composition":
+      return plan.interval === null
+        ? compileSemanticCategorical(plan, source)
+        : compileSemanticTimeSeries(plan, source, strategy);
+    case "distribution":
+      return compileSemanticDistribution(plan, source);
   }
 }

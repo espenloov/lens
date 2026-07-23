@@ -2,10 +2,16 @@ import { createHash } from "node:crypto";
 
 import type { TimeSeriesRequest } from "../time-series/contracts";
 import { queryArenaTimeSeriesRequestSchema } from "../time-series/contracts";
+import {
+  queryArenaRequestSchema,
+  type QueryArenaRequest,
+} from "./contracts";
 
 export function normalizeTimeSeriesRequest(request: TimeSeriesRequest) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
+    dataset: request.dataset,
+    datasetVersion: request.datasetVersion ?? 1,
     shape: request.shape,
     operation: request.operation,
     metric: request.metric,
@@ -55,4 +61,62 @@ export function createAnalysisSignature(request: TimeSeriesRequest): string {
 
 export function supportsQueryArena(request: TimeSeriesRequest): boolean {
   return queryArenaTimeSeriesRequestSchema.safeParse(request).success;
+}
+
+function normalizeSemanticAnalysis(
+  analysis: Extract<QueryArenaRequest, { kind: "semantic" }>,
+) {
+  const plan = {
+    ...analysis.request.plan,
+    title: "",
+    explanation: "",
+  };
+
+  return {
+    schemaVersion: 4,
+    kind: analysis.kind,
+    request: {
+      shape: analysis.request.shape,
+      transform: analysis.request.transform,
+      plan: {
+        ...plan,
+        filters: {
+          timeRange: plan.filters.timeRange,
+          dimensions: [...plan.filters.dimensions]
+            .map((filter) => ({
+              dimension: filter.dimension,
+              values: [...filter.values].sort((left, right) =>
+                String(left).localeCompare(String(right)),
+              ),
+            }))
+            .sort((left, right) =>
+              left.dimension.localeCompare(right.dimension),
+            ),
+          measures: [...plan.filters.measures].sort((left, right) =>
+            left.measure.localeCompare(right.measure),
+          ),
+        },
+      },
+    },
+  };
+}
+
+export function normalizeQueryArenaRequest(analysis: QueryArenaRequest) {
+  return analysis.kind === "time_series"
+    ? {
+        schemaVersion: 4,
+        kind: analysis.kind,
+        request: normalizeTimeSeriesRequest(analysis.request),
+      }
+    : normalizeSemanticAnalysis(analysis);
+}
+
+export function createQueryArenaSignature(
+  analysis: QueryArenaRequest,
+): string {
+  const validated = queryArenaRequestSchema.parse(analysis);
+
+  return createHash("sha256")
+    .update(JSON.stringify(normalizeQueryArenaRequest(validated)))
+    .digest("hex");
 }
