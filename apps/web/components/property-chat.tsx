@@ -50,11 +50,7 @@ import type {
 import type { propertyAgent } from "@/src/trigger/property-agent";
 
 type PropertyChatMessage = InferChatUIMessage<typeof propertyAgent>;
-type LensView =
-  | "workspace"
-  | "clickhouse"
-  | "performance"
-  | "history";
+type LensView = "workspace" | "clickhouse" | "performance" | "history";
 
 type PropertyChatProps = {
   readonly chatId: string;
@@ -160,12 +156,26 @@ function RailAction({
   );
 }
 
-function StarterPreview({ kind }: { readonly kind: (typeof STARTER_QUESTIONS)[number]["preview"] }) {
+function StarterPreview({
+  kind,
+}: {
+  readonly kind: (typeof STARTER_QUESTIONS)[number]["preview"];
+}) {
   if (kind === "compare") {
     return (
       <svg aria-hidden="true" className="h-14 w-full" viewBox="0 0 220 56">
-        <path d="M4 42 C35 38 43 22 72 27 S116 40 140 18 S183 16 216 8" fill="none" stroke="var(--chart-1)" strokeWidth="3" />
-        <path d="M4 49 C33 45 52 35 76 39 S121 25 145 31 S185 24 216 19" fill="none" stroke="var(--chart-2)" strokeWidth="3" />
+        <path
+          d="M4 42 C35 38 43 22 72 27 S116 40 140 18 S183 16 216 8"
+          fill="none"
+          stroke="var(--chart-1)"
+          strokeWidth="3"
+        />
+        <path
+          d="M4 49 C33 45 52 35 76 39 S121 25 145 31 S185 24 216 19"
+          fill="none"
+          stroke="var(--chart-2)"
+          strokeWidth="3"
+        />
       </svg>
     );
   }
@@ -173,7 +183,12 @@ function StarterPreview({ kind }: { readonly kind: (typeof STARTER_QUESTIONS)[nu
   if (kind === "anomaly") {
     return (
       <svg aria-hidden="true" className="h-14 w-full" viewBox="0 0 220 56">
-        <path d="M4 39 C35 30 48 34 72 29 S112 35 135 28 S177 34 216 22" fill="none" stroke="var(--chart-1)" strokeWidth="3" />
+        <path
+          d="M4 39 C35 30 48 34 72 29 S112 35 135 28 S177 34 216 22"
+          fill="none"
+          stroke="var(--chart-1)"
+          strokeWidth="3"
+        />
         <circle cx="135" cy="28" fill="var(--chart-3)" r="6" />
       </svg>
     );
@@ -275,7 +290,9 @@ function ClickHouseView({
               <div className="mt-4 flex items-center gap-3 text-xs text-[var(--ink-tertiary)]">
                 <span>rows</span>
                 <span>·</span>
-                <span>{dateFrom.slice(0, 4)}–{dateTo.slice(0, 4)}</span>
+                <span>
+                  {dateFrom.slice(0, 4)}–{dateTo.slice(0, 4)}
+                </span>
               </div>
               <button
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--lens-dark)] px-4 py-2.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7]"
@@ -338,7 +355,10 @@ function ClickHouseView({
             <div className="mt-4 flex flex-1 items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--line-strong)] text-center">
               <div className="flex items-center gap-2">
                 <TechnologyMark technology="trigger" />
-                <ArrowRight aria-hidden="true" className="size-4 text-[var(--ink-tertiary)]" />
+                <ArrowRight
+                  aria-hidden="true"
+                  className="size-4 text-[var(--ink-tertiary)]"
+                />
                 <TechnologyMark technology="clickhouse" />
               </div>
               <p className="text-xs font-semibold text-[var(--ink)]">
@@ -407,7 +427,9 @@ function ClickHouseView({
             <div className="flex items-center gap-3 px-3" key={step.label}>
               <TechnologyMark technology={step.technology} />
               <div>
-                <p className="text-xs font-semibold text-[var(--ink)]">{step.label}</p>
+                <p className="text-xs font-semibold text-[var(--ink)]">
+                  {step.label}
+                </p>
                 <p className="mt-1 font-mono text-[9px] text-[var(--ink-tertiary)]">
                   {step.detail}
                 </p>
@@ -439,7 +461,9 @@ function HistoryView({
         <section className="analysis-tile col-span-12 min-h-0 overflow-hidden p-6 lg:col-span-5">
           <p className="text-xs text-[#66758e]">This session</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[#09265b]">
-            {questions.length === 0 ? "No analyses yet" : `${questions.length} ${questions.length === 1 ? "analysis" : "analyses"}`}
+            {questions.length === 0
+              ? "No analyses yet"
+              : `${questions.length} ${questions.length === 1 ? "analysis" : "analyses"}`}
           </h2>
           <div className="soft-scrollbar mt-6 max-h-[24rem] divide-y divide-[#09265b]/8 overflow-y-auto">
             {questions.map((question, index) => (
@@ -450,8 +474,12 @@ function HistoryView({
                 type="button"
               >
                 <span>
-                  <span className="block text-xs text-[#8591a5]">Analysis {String(index + 1).padStart(2, "0")}</span>
-                  <span className="mt-1 line-clamp-2 block text-sm font-medium leading-5 text-[#09265b]">{question}</span>
+                  <span className="block text-xs text-[#8591a5]">
+                    Analysis {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="mt-1 line-clamp-2 block text-sm font-medium leading-5 text-[#09265b]">
+                    {question}
+                  </span>
                 </span>
                 <ArrowRight className="size-4 shrink-0 text-[#21a8a3] transition-transform group-hover:translate-x-1" />
               </button>
@@ -463,14 +491,18 @@ function HistoryView({
           <div>
             <p className="text-xs text-[#66758e]">Session memory</p>
             <h3 className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#09265b]">
-              Reuse a question without rebuilding the interface around a transcript.
+              Reuse a question without rebuilding the interface around a
+              transcript.
             </h3>
             <p className="mt-4 max-w-lg text-sm leading-6 text-[#66758e]">
-              Lens keeps the active analytical workspace mounted. That preserves the browser-side Rust index while you inspect ClickHouse or performance evidence.
+              Lens keeps the active analytical workspace mounted. That preserves
+              the browser-side Rust index while you inspect ClickHouse or
+              performance evidence.
             </p>
           </div>
           <p className="mt-8 border-t border-[#09265b]/8 pt-5 text-xs text-[#66758e]">
-            Selecting an item places its question back in the composer so you can refine or run it again.
+            Selecting an item places its question back in the composer so you
+            can refine or run it again.
           </p>
         </section>
       </div>
@@ -556,10 +588,12 @@ function PropertyChatWorkspace({
     }
   }
 
-  const latestUserMessage = latestUserIndex < 0 ? null : messages[latestUserIndex];
+  const latestUserMessage =
+    latestUserIndex < 0 ? null : messages[latestUserIndex];
   const assistantMessages = messages.slice(latestUserIndex + 1);
   let latestToolPart: PropertyChatMessage["parts"][number] | null = null;
-  let latestAssistantTextPart: PropertyChatMessage["parts"][number] | null = null;
+  let latestAssistantTextPart: PropertyChatMessage["parts"][number] | null =
+    null;
 
   for (const message of assistantMessages) {
     if (message.role !== "assistant") {
@@ -623,7 +657,10 @@ function PropertyChatWorkspace({
   function askAnother() {
     setActiveView("workspace");
     setAskingAnother(true);
-    window.setTimeout(() => document.querySelector<HTMLInputElement>("#question")?.focus(), 0);
+    window.setTimeout(
+      () => document.querySelector<HTMLInputElement>("#question")?.focus(),
+      0,
+    );
   }
 
   function askAgain(question: string) {
@@ -639,207 +676,285 @@ function PropertyChatWorkspace({
   return (
     <AnalysisNavigationProvider openPerformance={openPerformance}>
       <section className="grid h-full min-h-0 grid-cols-1 sm:grid-cols-[76px_minmax(0,1fr)]">
-      <nav aria-label="Lens views" className="lens-rail relative z-50 hidden min-h-0 flex-col items-center overflow-visible px-3 py-5 sm:flex">
-        <BrandMark className="drop-shadow-[0_10px_16px_rgb(45_57_84_/_18%)]" size={48} />
+        <nav
+          aria-label="Lens views"
+          className="lens-rail relative z-50 hidden min-h-0 flex-col items-center overflow-visible px-3 py-5 sm:flex"
+        >
+          <BrandMark
+            className="drop-shadow-[0_10px_16px_rgb(45_57_84_/_18%)]"
+            size={48}
+          />
 
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <RailAction label="Data source home" onClick={chooseDataSource}>
-            <House aria-hidden="true" className="size-5" />
-          </RailAction>
-          <RailAction active={activeView === "workspace"} label="Workspace" onClick={() => setActiveView("workspace")}>
-            <LayoutDashboard aria-hidden="true" className="size-5" />
-          </RailAction>
-          <RailAction active={activeView === "clickhouse"} label="Data overview" onClick={() => setActiveView("clickhouse")}>
-            <Database aria-hidden="true" className="size-5" />
-          </RailAction>
-          <RailAction active={activeView === "performance"} label="Performance" onClick={() => openPerformance("flow")}>
-            <Gauge aria-hidden="true" className="size-5" />
-          </RailAction>
-          <RailAction active={activeView === "history"} label="History" onClick={() => setActiveView("history")}>
-            <History aria-hidden="true" className="size-5" />
-          </RailAction>
-        </div>
-
-        <div className="mt-auto flex items-center gap-2" title="Application ready">
-          <span className="size-2 rounded-full bg-[#21c5be]" />
-          <span className="sr-only">Application ready</span>
-        </div>
-      </nav>
-
-      <div
-        className={`grid min-h-0 min-w-0 ${
-          showComposer
-            ? "grid-rows-[64px_minmax(0,1fr)_82px]"
-            : "grid-rows-[64px_minmax(0,1fr)]"
-        }`}
-      >
-        <header className="flex items-center justify-between border-b border-[var(--line)] px-5 sm:px-7">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
-                {VIEW_TITLES[activeView]}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] text-[var(--ink-tertiary)]">
-                {activeSource.displayName} · {activeSource.rowCount.toLocaleString()} rows
-              </p>
-            </div>
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <RailAction label="Data source home" onClick={chooseDataSource}>
+              <House aria-hidden="true" className="size-5" />
+            </RailAction>
+            <RailAction
+              active={activeView === "workspace"}
+              label="Workspace"
+              onClick={() => setActiveView("workspace")}
+            >
+              <LayoutDashboard aria-hidden="true" className="size-5" />
+            </RailAction>
+            <RailAction
+              active={activeView === "clickhouse"}
+              label="Data overview"
+              onClick={() => setActiveView("clickhouse")}
+            >
+              <Database aria-hidden="true" className="size-5" />
+            </RailAction>
+            <RailAction
+              active={activeView === "performance"}
+              label="Performance"
+              onClick={() => openPerformance("flow")}
+            >
+              <Gauge aria-hidden="true" className="size-5" />
+            </RailAction>
+            <RailAction
+              active={activeView === "history"}
+              label="History"
+              onClick={() => setActiveView("history")}
+            >
+              <History aria-hidden="true" className="size-5" />
+            </RailAction>
           </div>
-          <div className="flex items-center gap-2">
-            {hasAnalysisResult && (
-              <button
-                className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/60 px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition-colors hover:bg-white"
-                onClick={askAnother}
-                type="button"
-              >
-                <Plus aria-hidden="true" className="size-3.5 text-[#697cc7]" />
-                <span className="hidden sm:inline">New question</span>
-                <span className="sr-only sm:hidden">New question</span>
-              </button>
-            )}
-            <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/48 px-3 py-2 text-xs text-[var(--ink-secondary)]">
-              <span className="size-2 rounded-full bg-[#f5c400]" />
-              <span className="hidden sm:inline">ClickHouse live</span>
-              <span className="sm:hidden">{activeSource.rowCount.toLocaleString()}</span>
-            </div>
-          </div>
-        </header>
 
-        <main className="relative min-h-0 min-w-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-5">
-          <section aria-hidden={activeView !== "workspace"} className="h-full min-h-0" hidden={activeView !== "workspace"}>
-            {messages.length === 0 ? (
-              <div className="mx-auto grid h-full min-h-0 w-full max-w-6xl grid-cols-12 gap-3">
-                <section className="brand-hero analysis-tile relative col-span-12 flex min-h-0 flex-col justify-between overflow-hidden p-7 lg:col-span-7 lg:p-9">
-                  <div className="relative z-10">
-                    <p className="text-xs font-semibold tracking-[0.08em] text-[var(--ink-tertiary)]">
-                      {activeSource.displayName}
-                    </p>
-                    <h1 className="mt-5 max-w-2xl text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.055em] text-[var(--ink)] sm:text-5xl lg:text-[3.5rem]">
-                      What do you want to see?
-                    </h1>
-                    <p className="mt-5 max-w-md text-sm leading-6 text-[var(--ink-secondary)]">
-                      Ask naturally. Lens turns {activeSource.rowCount.toLocaleString()} rows into a visual answer you can explore.
-                    </p>
-                  </div>
-                  <div className="relative z-10 mt-8 flex items-end justify-between gap-6">
-                    <div>
-                      <div className="optical-rule h-0.5 w-20 rounded-full" />
-                      <p className="mt-3 text-[11px] text-[var(--ink-tertiary)]">
-                        Trigger.dev → ClickHouse → Arrow → Rust
+          <div
+            className="mt-auto flex items-center gap-2"
+            title="Application ready"
+          >
+            <span className="size-2 rounded-full bg-[#21c5be]" />
+            <span className="sr-only">Application ready</span>
+          </div>
+        </nav>
+
+        <div
+          className={`grid min-h-0 min-w-0 ${
+            showComposer
+              ? "grid-rows-[64px_minmax(0,1fr)_82px]"
+              : "grid-rows-[64px_minmax(0,1fr)]"
+          }`}
+        >
+          <header className="flex items-center justify-between border-b border-[var(--line)] px-5 sm:px-7">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
+                  {VIEW_TITLES[activeView]}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-[var(--ink-tertiary)]">
+                  {activeSource.displayName} ·{" "}
+                  {activeSource.rowCount.toLocaleString()} rows
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {hasAnalysisResult && (
+                <button
+                  className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/60 px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition-colors hover:bg-white"
+                  onClick={askAnother}
+                  type="button"
+                >
+                  <Plus
+                    aria-hidden="true"
+                    className="size-3.5 text-[#697cc7]"
+                  />
+                  <span className="hidden sm:inline">New question</span>
+                  <span className="sr-only sm:hidden">New question</span>
+                </button>
+              )}
+              <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/48 px-3 py-2 text-xs text-[var(--ink-secondary)]">
+                <span className="size-2 rounded-full bg-[#f5c400]" />
+                <span className="hidden sm:inline">ClickHouse live</span>
+                <span className="sm:hidden">
+                  {activeSource.rowCount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          <main className="relative min-h-0 min-w-0 overflow-hidden px-4 py-4 sm:px-6 sm:py-5">
+            <section
+              aria-hidden={activeView !== "workspace"}
+              className="h-full min-h-0"
+              hidden={activeView !== "workspace"}
+            >
+              {messages.length === 0 ? (
+                <div className="mx-auto grid h-full min-h-0 w-full max-w-6xl grid-cols-12 gap-3">
+                  <section className="brand-hero analysis-tile relative col-span-12 flex min-h-0 flex-col justify-between overflow-hidden p-7 lg:col-span-7 lg:p-9">
+                    <div className="relative z-10">
+                      <p className="text-xs font-semibold tracking-[0.08em] text-[var(--ink-tertiary)]">
+                        {activeSource.displayName}
+                      </p>
+                      <h1 className="mt-5 max-w-2xl text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.055em] text-[var(--ink)] sm:text-5xl lg:text-[3.5rem]">
+                        What do you want to see?
+                      </h1>
+                      <p className="mt-5 max-w-md text-sm leading-6 text-[var(--ink-secondary)]">
+                        Ask naturally. Lens turns{" "}
+                        {activeSource.rowCount.toLocaleString()} rows into a
+                        visual answer you can explore.
                       </p>
                     </div>
-                    <BrandMark className="drop-shadow-[0_24px_34px_rgb(45_57_84_/_20%)]" size={142} />
-                  </div>
-                </section>
+                    <div className="relative z-10 mt-8 flex items-end justify-between gap-6">
+                      <div>
+                        <div className="optical-rule h-0.5 w-20 rounded-full" />
+                      </div>
+                      <BrandMark
+                        className="drop-shadow-[0_24px_34px_rgb(45_57_84_/_20%)]"
+                        size={142}
+                      />
+                    </div>
+                  </section>
 
-                <div className="col-span-12 grid min-h-0 gap-3 lg:col-span-5 lg:grid-rows-3">
-                  {starterQuestions.map((starter, index) => (
-                    <button
-                      className={`analysis-tile group grid min-h-32 grid-cols-[minmax(0,1fr)_9rem] items-center gap-4 overflow-hidden p-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgb(45_57_84_/_11%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7] motion-reduce:transition-none ${
-                        index === 0 ? "bg-white/94" : ""
-                      }`}
-                      key={starter.question}
-                      onClick={() => submitQuestion(starter.question)}
-                      type="button"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
-                          {starter.label}
+                  <div className="col-span-12 grid min-h-0 gap-3 lg:col-span-5 lg:grid-rows-3">
+                    {starterQuestions.map((starter, index) => (
+                      <button
+                        className={`analysis-tile group grid min-h-32 grid-cols-[minmax(0,1fr)_9rem] items-center gap-4 overflow-hidden p-5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgb(45_57_84_/_11%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#697cc7] motion-reduce:transition-none ${
+                          index === 0 ? "bg-white/94" : ""
+                        }`}
+                        key={starter.question}
+                        onClick={() => submitQuestion(starter.question)}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold tracking-[-0.025em] text-[var(--ink)]">
+                            {starter.label}
+                          </span>
+                          <span className="mt-2 line-clamp-2 block text-xs leading-5 text-[var(--ink-tertiary)]">
+                            {starter.question}
+                          </span>
+                          <ArrowRight
+                            aria-hidden="true"
+                            className="mt-4 size-4 text-[#697cc7] transition-transform group-hover:translate-x-1"
+                          />
                         </span>
-                        <span className="mt-2 line-clamp-2 block text-xs leading-5 text-[var(--ink-tertiary)]">
-                          {starter.question}
-                        </span>
-                        <ArrowRight
-                          aria-hidden="true"
-                          className="mt-4 size-4 text-[#697cc7] transition-transform group-hover:translate-x-1"
-                        />
-                      </span>
-                      <StarterPreview kind={starter.preview} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                {latestUserMessage !== null && (
-                  <div className="max-w-4xl shrink-0">
-                    {latestUserMessage.parts.map((part, index) => (
-                      <MessagePart key={`${latestUserMessage.id}-${index}`} part={part} role="user" />
+                        <StarterPreview kind={starter.preview} />
+                      </button>
                     ))}
                   </div>
-                )}
-
-                <div className="relative min-h-0 flex-1">
-                  {hasAnalysisResult && latestToolPart !== null && (
-                    <div
-                      className={`workspace-result soft-scrollbar h-full min-h-0 overflow-y-auto pr-1 ${
-                        settling ? "dashboard-revealing" : ""
-                      }`}
-                    >
-                      <MessagePart part={latestToolPart} role="assistant" />
-                    </div>
-                  )}
-
-                  {!isBusy && latestToolPart === null && latestAssistantTextPart !== null && (
-                    <MessagePart part={latestAssistantTextPart} role="assistant" />
-                  )}
-
-                  {(isBusy || settling) && (
-                    <div className="absolute inset-0 z-20">
-                      <DashboardAssembly settling={settling} />
-                    </div>
-                  )}
-
-                  {error && (
-                    <p className="glass-panel relative z-30 rounded-2xl p-4 text-sm text-destructive">
-                      Lens could not complete that request.
-                    </p>
-                  )}
                 </div>
-              </div>
-            )}
-          </section>
+              ) : (
+                <div className="flex h-full min-h-0 flex-col gap-3">
+                  {latestUserMessage !== null && (
+                    <div className="max-w-4xl shrink-0">
+                      {latestUserMessage.parts.map((part, index) => (
+                        <MessagePart
+                          key={`${latestUserMessage.id}-${index}`}
+                          part={part}
+                          role="user"
+                        />
+                      ))}
+                    </div>
+                  )}
 
-          <section aria-hidden={activeView !== "clickhouse"} className="h-full min-h-0" hidden={activeView !== "clickhouse"}>
-            <ClickHouseView
-              onAskOverview={() => submitQuestion("Show me what this data looks like")}
-              profile={initialDataSourceProfile}
-              source={activeSource}
-            />
-          </section>
-          <section aria-hidden={activeView !== "performance"} className="h-full min-h-0" hidden={activeView !== "performance"}>
-            <PerformanceView focus={performanceFocus} />
-          </section>
-          <section aria-hidden={activeView !== "history"} className="h-full min-h-0" hidden={activeView !== "history"}>
-            <HistoryView onAskAgain={askAgain} questions={sessionQuestions} />
-          </section>
-        </main>
+                  <div className="relative min-h-0 flex-1">
+                    {hasAnalysisResult && latestToolPart !== null && (
+                      <div
+                        className={`workspace-result soft-scrollbar h-full min-h-0 overflow-y-auto pr-1 ${
+                          settling ? "dashboard-revealing" : ""
+                        }`}
+                      >
+                        <MessagePart part={latestToolPart} role="assistant" />
+                      </div>
+                    )}
 
-        {showComposer && (
-          <form
-            className="mx-4 mb-4 flex min-w-0 items-center gap-3 rounded-2xl border border-white/90 bg-white/78 p-2 pl-4 shadow-[0_16px_38px_rgb(45_57_84_/_10%)] backdrop-blur-2xl transition-shadow focus-within:ring-2 focus-within:ring-[#8796d6]/55 sm:mx-6"
-            onSubmit={handleSubmit}
-          >
-            <label className="sr-only" htmlFor="question">Data question</label>
-            <Plus aria-hidden="true" className="size-4 shrink-0 text-[var(--ink-tertiary)]" />
-            <input
-              className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-tertiary)]"
-              id="question"
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask about trends, groups, distributions or anomalies…"
-              value={input}
-            />
-            {isBusy ? (
-              <Button aria-label="Stop analysis" className="size-11 shrink-0 rounded-xl" onClick={() => void stop()} type="button" variant="outline">
-                <Square aria-hidden="true" className="size-3.5 fill-current" />
-              </Button>
-            ) : (
-              <Button aria-label="Ask Lens" className="size-11 shrink-0 rounded-xl bg-[var(--lens-dark)] text-white shadow-none hover:bg-[#3a4050]" type="submit">
-                <ArrowUp aria-hidden="true" className="size-4" />
-              </Button>
-            )}
-          </form>
-        )}
-      </div>
+                    {!isBusy &&
+                      latestToolPart === null &&
+                      latestAssistantTextPart !== null && (
+                        <MessagePart
+                          part={latestAssistantTextPart}
+                          role="assistant"
+                        />
+                      )}
+
+                    {(isBusy || settling) && (
+                      <div className="absolute inset-0 z-20">
+                        <DashboardAssembly settling={settling} />
+                      </div>
+                    )}
+
+                    {error && (
+                      <p className="glass-panel relative z-30 rounded-2xl p-4 text-sm text-destructive">
+                        Lens could not complete that request.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section
+              aria-hidden={activeView !== "clickhouse"}
+              className="h-full min-h-0"
+              hidden={activeView !== "clickhouse"}
+            >
+              <ClickHouseView
+                onAskOverview={() =>
+                  submitQuestion("Show me what this data looks like")
+                }
+                profile={initialDataSourceProfile}
+                source={activeSource}
+              />
+            </section>
+            <section
+              aria-hidden={activeView !== "performance"}
+              className="h-full min-h-0"
+              hidden={activeView !== "performance"}
+            >
+              <PerformanceView focus={performanceFocus} />
+            </section>
+            <section
+              aria-hidden={activeView !== "history"}
+              className="h-full min-h-0"
+              hidden={activeView !== "history"}
+            >
+              <HistoryView onAskAgain={askAgain} questions={sessionQuestions} />
+            </section>
+          </main>
+
+          {showComposer && (
+            <form
+              className="mx-4 mb-4 flex min-w-0 items-center gap-3 rounded-2xl border border-white/90 bg-white/78 p-2 pl-4 shadow-[0_16px_38px_rgb(45_57_84_/_10%)] backdrop-blur-2xl transition-shadow focus-within:ring-2 focus-within:ring-[#8796d6]/55 sm:mx-6"
+              onSubmit={handleSubmit}
+            >
+              <label className="sr-only" htmlFor="question">
+                Data question
+              </label>
+              <Plus
+                aria-hidden="true"
+                className="size-4 shrink-0 text-[var(--ink-tertiary)]"
+              />
+              <input
+                className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-tertiary)]"
+                id="question"
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Ask about trends, groups, distributions or anomalies…"
+                value={input}
+              />
+              {isBusy ? (
+                <Button
+                  aria-label="Stop analysis"
+                  className="size-11 shrink-0 rounded-xl"
+                  onClick={() => void stop()}
+                  type="button"
+                  variant="outline"
+                >
+                  <Square
+                    aria-hidden="true"
+                    className="size-3.5 fill-current"
+                  />
+                </Button>
+              ) : (
+                <Button
+                  aria-label="Ask Lens"
+                  className="size-11 shrink-0 rounded-xl bg-[var(--lens-dark)] text-white shadow-none hover:bg-[#3a4050]"
+                  type="submit"
+                >
+                  <ArrowUp aria-hidden="true" className="size-4" />
+                </Button>
+              )}
+            </form>
+          )}
+        </div>
       </section>
     </AnalysisNavigationProvider>
   );
