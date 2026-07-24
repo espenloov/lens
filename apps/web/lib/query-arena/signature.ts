@@ -7,9 +7,263 @@ import {
   type QueryArenaRequest,
 } from "./contracts";
 
+const DAY_MS = 86_400_000;
+
+type SelectionCardinality =
+  | "none"
+  | "single"
+  | "small"
+  | "medium"
+  | "large";
+
+function hash(value: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("hex");
+}
+
+function classifySelectionCardinality(count: number): SelectionCardinality {
+  if (count === 0) {
+    return "none";
+  }
+
+  if (count === 1) {
+    return "single";
+  }
+
+  if (count <= 5) {
+    return "small";
+  }
+
+  if (count <= 20) {
+    return "medium";
+  }
+
+  return "large";
+}
+
+function classifyTimeRange(
+  from: string | null,
+  to: string | null,
+): "none" | "short" | "medium" | "long" | "historical" {
+  if (from === null || to === null) {
+    return "none";
+  }
+
+  const durationDays =
+    Math.floor((Date.parse(to) - Date.parse(from)) / DAY_MS) + 1;
+
+  if (durationDays <= 31) {
+    return "short";
+  }
+
+  if (durationDays <= 366) {
+    return "medium";
+  }
+
+  if (durationDays <= 1_827) {
+    return "long";
+  }
+
+  return "historical";
+}
+
+function classifyMeasureBounds(
+  minimum: number | null,
+  maximum: number | null,
+): "lower" | "upper" | "range" | "none" {
+  if (minimum !== null && maximum !== null) {
+    return "range";
+  }
+
+  if (minimum !== null) {
+    return "lower";
+  }
+
+  if (maximum !== null) {
+    return "upper";
+  }
+
+  return "none";
+}
+
+function timeSeriesMetricFamily(metric: TimeSeriesRequest["metric"]) {
+  return metric === "transaction_count"
+    ? { kind: "row_count" as const }
+    : {
+        kind: "measure" as const,
+        aggregation:
+          metric === "average_price" ? ("average" as const) : ("median" as const),
+      };
+}
+
+function normalizeTimeSeriesSemanticFamily(request: TimeSeriesRequest) {
+  const dimensionSelections = [
+    ...(request.filters.location === null
+      ? []
+      : [request.filters.location.values.length]),
+    ...(request.filters.propertyTypes.length === 0
+      ? []
+      : [request.filters.propertyTypes.length]),
+    ...(request.filters.tenure.length === 0
+      ? []
+      : [request.filters.tenure.length]),
+    ...(request.filters.newBuild === null ? [] : [1]),
+  ];
+  const groupedSelection =
+    request.seriesBy === null
+      ? null
+      : request.filters.location?.level === request.seriesBy
+        ? request.filters.location.values.length
+        : request.seriesBy === "property_type"
+          ? request.filters.propertyTypes.length
+          : request.seriesBy === "tenure"
+            ? request.filters.tenure.length
+            : request.seriesBy === "new_build" &&
+                request.filters.newBuild !== null
+              ? 1
+              : 0;
+
+  return {
+    schemaVersion: 1,
+    shape: request.shape,
+    operation: request.operation,
+    metric: timeSeriesMetricFamily(request.metric),
+    interval: request.interval,
+    transform: request.transform,
+    grouping:
+      groupedSelection === null
+        ? { dimensions: 0, cardinality: "none" as const }
+        : {
+            dimensions: 1,
+            cardinality:
+              groupedSelection === 0
+                ? ("unknown" as const)
+                : classifySelectionCardinality(groupedSelection),
+          },
+    filters: {
+      timeRange: classifyTimeRange(
+        request.filters.dateFrom,
+        request.filters.dateTo,
+      ),
+      dimensions: dimensionSelections
+        .map(classifySelectionCardinality)
+        .sort(),
+      measures: [
+        classifyMeasureBounds(
+          request.filters.minimumPrice,
+          request.filters.maximumPrice,
+        ),
+      ].filter((value) => value !== "none"),
+    },
+  };
+}
+
+function semanticPlanDimension(
+  plan: Extract<QueryArenaRequest, { kind: "semantic" }>["request"]["plan"],
+): string | null {
+  switch (plan.operation) {
+    case "trend":
+    case "anomaly":
+      return plan.splitBy;
+    case "comparison":
+      return plan.compareBy;
+    case "ranking":
+      return plan.rankBy;
+    case "distribution":
+      return plan.splitBy;
+    case "composition":
+      return plan.dimension;
+  }
+}
+
+function semanticPlanMetric(
+  plan: Extract<QueryArenaRequest, { kind: "semantic" }>["request"]["plan"],
+) {
+  if (plan.operation === "distribution") {
+    return { kind: "distribution" as const };
+  }
+
+  if (plan.operation === "composition") {
+    return { kind: "row_count" as const };
+  }
+
+  return plan.metric.kind === "row_count"
+    ? { kind: "row_count" as const }
+    : {
+        kind: "measure" as const,
+        aggregation: plan.metric.aggregation,
+      };
+}
+
+function semanticPlanInterval(
+  plan: Extract<QueryArenaRequest, { kind: "semantic" }>["request"]["plan"],
+) {
+  switch (plan.operation) {
+    case "trend":
+    case "anomaly":
+      return plan.interval;
+    case "comparison":
+    case "composition":
+      return plan.interval;
+    case "ranking":
+    case "distribution":
+      return null;
+  }
+}
+
+function normalizeGenericSemanticFamily(
+  analysis: Extract<QueryArenaRequest, { kind: "semantic" }>,
+) {
+  const plan = analysis.request.plan;
+  const groupedDimension = semanticPlanDimension(plan);
+  const groupedFilter =
+    groupedDimension === null
+      ? undefined
+      : plan.filters.dimensions.find(
+          (filter) => filter.dimension === groupedDimension,
+        );
+
+  return {
+    schemaVersion: 1,
+    shape: analysis.request.shape,
+    operation: plan.operation,
+    metric: semanticPlanMetric(plan),
+    interval: semanticPlanInterval(plan),
+    transform: analysis.request.transform,
+    grouping:
+      groupedDimension === null
+        ? { dimensions: 0, cardinality: "none" as const }
+        : {
+            dimensions: 1,
+            cardinality:
+              groupedFilter === undefined
+                ? ("unknown" as const)
+                : classifySelectionCardinality(groupedFilter.values.length),
+          },
+    filters: {
+      timeRange: classifyTimeRange(
+        plan.filters.timeRange?.from ?? null,
+        plan.filters.timeRange?.to ?? null,
+      ),
+      dimensions: plan.filters.dimensions
+        .map((filter) =>
+          classifySelectionCardinality(filter.values.length),
+        )
+        .sort(),
+      measures: plan.filters.measures
+        .map((filter) =>
+          classifyMeasureBounds(filter.minimum, filter.maximum),
+        )
+        .filter((value) => value !== "none")
+        .sort(),
+    },
+  };
+}
+
 export function normalizeTimeSeriesRequest(request: TimeSeriesRequest) {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     dataset: request.dataset,
     datasetVersion: request.datasetVersion ?? 1,
     shape: request.shape,
@@ -38,11 +292,10 @@ export function normalizeTimeSeriesRequest(request: TimeSeriesRequest) {
 
 export function createArenaId(
   signature: string,
-  now: Date = new Date(),
+  requestId: string,
 ): string {
-  const hour = now.toISOString().slice(0, 13);
   const bytes = createHash("sha256")
-    .update(`${signature}:${hour}`)
+    .update(`${signature}:${requestId}`)
     .digest()
     .subarray(0, 16);
 
@@ -54,9 +307,11 @@ export function createArenaId(
 }
 
 export function createAnalysisSignature(request: TimeSeriesRequest): string {
-  return createHash("sha256")
-    .update(JSON.stringify(normalizeTimeSeriesRequest(request)))
-    .digest("hex");
+  return hash({
+    schemaVersion: 5,
+    kind: "time_series",
+    request: normalizeTimeSeriesRequest(request),
+  });
 }
 
 export function supportsQueryArena(request: TimeSeriesRequest): boolean {
@@ -73,7 +328,7 @@ function normalizeSemanticAnalysis(
   };
 
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     kind: analysis.kind,
     request: {
       shape: analysis.request.shape,
@@ -104,11 +359,84 @@ function normalizeSemanticAnalysis(
 export function normalizeQueryArenaRequest(analysis: QueryArenaRequest) {
   return analysis.kind === "time_series"
     ? {
-        schemaVersion: 4,
+        schemaVersion: 5,
         kind: analysis.kind,
         request: normalizeTimeSeriesRequest(analysis.request),
       }
     : normalizeSemanticAnalysis(analysis);
+}
+
+function normalizeExecutionContext(analysis: QueryArenaRequest) {
+  const family = normalizeSemanticFamily(analysis);
+
+  if (analysis.kind === "time_series") {
+    const request = analysis.request;
+
+    return {
+      schemaVersion: 1,
+      dataset: request.dataset,
+      datasetVersion: request.datasetVersion ?? 1,
+      family,
+      physicalRoles: {
+        metric: request.metric,
+        seriesBy: request.seriesBy,
+        locationLevel: request.filters.location?.level ?? null,
+        filters: {
+          propertyType: request.filters.propertyTypes.length > 0,
+          newBuild: request.filters.newBuild !== null,
+          tenure: request.filters.tenure.length > 0,
+          minimumPrice: request.filters.minimumPrice !== null,
+          maximumPrice: request.filters.maximumPrice !== null,
+        },
+      },
+    };
+  }
+
+  const plan = analysis.request.plan;
+
+  return {
+    schemaVersion: 1,
+    dataset: plan.dataset,
+    datasetVersion: plan.datasetVersion,
+    family,
+    physicalRoles: {
+      metric:
+        plan.operation === "distribution"
+          ? { measure: plan.measure }
+          : plan.operation === "composition"
+            ? { kind: "row_count" as const }
+            : plan.metric,
+      dimension: semanticPlanDimension(plan),
+      dimensionFilters: plan.filters.dimensions
+        .map((filter) => ({
+          dimension: filter.dimension,
+          cardinality: classifySelectionCardinality(filter.values.length),
+        }))
+        .sort((left, right) =>
+          left.dimension.localeCompare(right.dimension),
+        ),
+      measureFilters: plan.filters.measures
+        .map((filter) => ({
+          measure: filter.measure,
+          bounds: classifyMeasureBounds(filter.minimum, filter.maximum),
+        }))
+        .sort((left, right) => left.measure.localeCompare(right.measure)),
+    },
+  };
+}
+
+export function normalizeSemanticFamily(analysis: QueryArenaRequest) {
+  const validated = queryArenaRequestSchema.parse(analysis);
+
+  return validated.kind === "time_series"
+    ? normalizeTimeSeriesSemanticFamily(validated.request)
+    : normalizeGenericSemanticFamily(validated);
+}
+
+export function createSemanticFamilyHash(
+  analysis: QueryArenaRequest,
+): string {
+  return hash(normalizeSemanticFamily(analysis));
 }
 
 export function createQueryArenaSignature(
@@ -116,7 +444,14 @@ export function createQueryArenaSignature(
 ): string {
   const validated = queryArenaRequestSchema.parse(analysis);
 
-  return createHash("sha256")
-    .update(JSON.stringify(normalizeQueryArenaRequest(validated)))
-    .digest("hex");
+  return hash(normalizeExecutionContext(validated));
+}
+
+export function createQueryArenaIdentity(analysis: QueryArenaRequest) {
+  const validated = queryArenaRequestSchema.parse(analysis);
+
+  return {
+    executionSignature: createQueryArenaSignature(validated),
+    semanticFamilyHash: createSemanticFamilyHash(validated),
+  };
 }

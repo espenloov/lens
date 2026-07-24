@@ -7,6 +7,9 @@ describe("toPerformanceHistoryRows", () => {
     const rows = toPerformanceHistoryRows({
       arenaId: "9fde1811-bdec-40ca-a231-5ff68461b84a",
       signature: "a".repeat(64),
+      semanticFamilyHash: "c".repeat(64),
+      dataset: "uk_price_paid",
+      datasetVersion: 1,
       winner: "prewhere",
       recordedAt: "2026-07-22T12:00:00.000Z",
       candidates: [

@@ -7,9 +7,6 @@ import {
   Check,
   Circle,
   Gauge,
-  ShieldCheck,
-  Sparkles,
-  Zap,
 } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -21,8 +18,11 @@ import {
   useAnalysisPerformance,
   type AnalysisFailureStage,
   type AnalysisPerformanceReport,
-  type QueryArenaEvidence,
 } from "./performance-context";
+import {
+  QueryArenaExperience,
+  SystemIntelligencePanel,
+} from "./query-arena-experience";
 
 function formatDuration(value: number): string {
   if (value < 1) {
@@ -229,94 +229,6 @@ function StateIcon({ state }: { readonly state: StageState }) {
   return <Circle aria-hidden="true" className="size-3 fill-current" />;
 }
 
-function QueryArenaSummary({
-  evidence,
-  focused,
-}: {
-  readonly evidence: QueryArenaEvidence;
-  readonly focused: boolean;
-}) {
-  const complete = evidence.status === "completed";
-  const failed = evidence.status === "failed";
-  const winner =
-    evidence.winner === "prewhere"
-      ? "Filter pushdown"
-      : evidence.winner === "baseline"
-        ? "Baseline"
-        : "Measuring";
-
-  return (
-    <section
-      className={`analysis-tile col-span-12 overflow-hidden p-4 transition-shadow lg:col-span-5 ${
-        focused ? "ring-2 ring-[#885cf6]/45 shadow-[0_20px_45px_rgb(99_71_196_/_13%)]" : ""
-      }`}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-[#885cf6]/10 text-[#704bd1]">
-            <Zap aria-hidden="true" className="size-4" />
-          </span>
-          <div>
-            <p className="text-[10px] text-[var(--ink-tertiary)]">
-              Optimization check
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-[var(--ink)]">
-              {failed
-                ? "The race failed safely"
-                : complete
-                  ? `${winner} won`
-                  : "Safe strategies are racing"}
-            </p>
-          </div>
-        </div>
-        <span className="font-mono text-sm font-semibold text-[#704bd1]">
-          {evidence.speedup === null
-            ? `${Math.round(evidence.progress * 100)}%`
-            : `${evidence.speedup.toFixed(2)}×`}
-        </span>
-      </div>
-
-      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#eceaf5]">
-        <div
-          className={`h-full rounded-full transition-[width] duration-500 ${
-            failed ? "bg-[#e7808b]" : "bg-[#885cf6]"
-          }`}
-          style={{ width: `${Math.max(evidence.progress * 100, 4)}%` }}
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="analysis-tile-quiet flex items-center gap-2 p-2.5">
-          <ShieldCheck
-            aria-hidden="true"
-            className="size-3.5 text-[#168f8a]"
-          />
-          <span className="text-[10px] font-medium text-[var(--ink-secondary)]">
-            {evidence.verified === null
-              ? "Rust verification"
-              : evidence.verified
-                ? "Results identical"
-                : "No safe winner"}
-          </span>
-        </div>
-        <div className="analysis-tile-quiet flex items-center gap-2 p-2.5">
-          <Sparkles
-            aria-hidden="true"
-            className="size-3.5 text-[#b49300]"
-          />
-          <span className="text-[10px] font-medium text-[var(--ink-secondary)]">
-            {evidence.recipeStored === null
-              ? "Recipe pending"
-              : evidence.recipeStored
-                ? "Winner remembered"
-                : "Recipe unavailable"}
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function SessionRuns({
   reports,
   selectedId,
@@ -335,7 +247,7 @@ function SessionRuns({
       className={`analysis-tile col-span-12 grid min-h-28 items-center gap-4 p-4 ${
         wide
           ? "lg:grid-cols-[11rem_minmax(0,1fr)]"
-          : "lg:col-span-7 lg:grid-cols-[9rem_minmax(0,1fr)]"
+          : "lg:col-span-8 lg:grid-cols-[9rem_minmax(0,1fr)]"
       }`}
     >
       <div>
@@ -569,13 +481,6 @@ export function PerformanceView({
         </section>
 
         {report.queryArena === null ? (
-          <SessionRuns
-            onSelect={setSelectedId}
-            reports={reports}
-            selectedId={report.id}
-            wide
-          />
-        ) : (
           <>
             <SessionRuns
               onSelect={setSelectedId}
@@ -583,10 +488,15 @@ export function PerformanceView({
               selectedId={report.id}
               wide={false}
             />
-            <QueryArenaSummary
+            <SystemIntelligencePanel reports={reports} />
+          </>
+        ) : (
+          <>
+            <QueryArenaExperience
               evidence={report.queryArena}
               focused={focus === "arena"}
             />
+            <SystemIntelligencePanel reports={reports} />
           </>
         )}
       </div>

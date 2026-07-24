@@ -28,6 +28,25 @@ describe("registration failure messages", () => {
     ).toBe("ClickHouse query timed out");
   });
 
+  it("preserves the field path for structured validation errors", () => {
+    expect(
+      registrationFailureMessage(
+        {
+          message: JSON.stringify([
+            {
+              code: "too_small",
+              path: ["time", "granularities"],
+              message: "Expected at least one time granularity",
+            },
+          ]),
+        },
+        "generating_manifest",
+      ),
+    ).toBe(
+      "time.granularities: Expected at least one time granularity",
+    );
+  });
+
   it("identifies the phase when Trigger.dev has no error message", () => {
     expect(
       registrationFailureMessage(undefined, "verifying_arrow"),

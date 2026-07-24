@@ -3,9 +3,13 @@ import { Readable } from "node:stream";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
 import { queryTimeSeriesAsArrow } from "@/lib/clickhouse/arrow-stream";
-import { getActiveRecipe } from "@/lib/query-arena/recipe-registry";
-import { createAnalysisSignature } from "@/lib/query-arena/signature";
+import { getRecipeGuidance } from "@/lib/query-arena/recipe-registry";
 import {
+  createAnalysisSignature,
+  createQueryArenaIdentity,
+} from "@/lib/query-arena/signature";
+import {
+  queryArenaTimeSeriesRequestSchema,
   timeSeriesRequestSchema,
   type TimeSeriesRequest,
 } from "@/lib/time-series/contracts";
@@ -54,10 +58,21 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const signature = createAnalysisSignature(input.value);
-  const preferredStrategy = await getActiveRecipe(signature);
-  const strategy = preferredStrategy.isOk()
-    ? (preferredStrategy.value ?? "baseline")
-    : "baseline";
+  const arenaRequest = queryArenaTimeSeriesRequestSchema.safeParse(
+    input.value,
+  );
+  const identity = arenaRequest.success
+    ? createQueryArenaIdentity({
+        kind: "time_series",
+        request: arenaRequest.data,
+      })
+    : null;
+  const guidance =
+    identity === null ? null : await getRecipeGuidance(identity);
+  const strategy =
+    guidance?.isOk() === true && guidance.value.source === "exact"
+      ? guidance.value.activeStrategy
+      : "baseline";
   const result = await queryTimeSeriesAsArrow(input.value, { strategy });
 
   if (result.isErr()) {
@@ -79,7 +94,15 @@ export async function POST(request: Request): Promise<Response> {
       "Cache-Control": "no-store",
       "Content-Type": "application/vnd.apache.arrow.stream",
       "X-ClickHouse-Query-Id": result.value.queryId,
-      "X-Lens-Analysis-Signature": signature,
+      "X-Lens-Analysis-Signature":
+        identity?.executionSignature ?? signature,
+      ...(identity === null
+        ? {}
+        : {
+            "X-Lens-Semantic-Family": identity.semanticFamilyHash,
+            "X-Lens-Learning-Source":
+              guidance?.isOk() === true ? guidance.value.source : "none",
+          }),
       "X-Lens-Arrow-Contract": "time_series/v1",
       "X-Lens-Query-Strategy": strategy,
       "X-Content-Type-Options": "nosniff",

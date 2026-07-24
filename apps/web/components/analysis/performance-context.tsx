@@ -13,7 +13,12 @@ import {
 import { ResultAsync } from "neverthrow";
 
 import { getPropertyChatRunDetails } from "@/app/actions/chat";
-import type { QueryStrategy } from "@/lib/query-arena/contracts";
+import type {
+  QueryArenaCandidate,
+  QueryArenaMetadata,
+  QueryArenaRequest,
+  QueryStrategy,
+} from "@/lib/query-arena/contracts";
 import {
   isTerminalTriggerRun,
   type TriggerRunDetails,
@@ -26,6 +31,7 @@ export type AnalysisFailureStage =
   | "rust";
 
 export type QueryArenaEvidence = {
+  readonly analysis: QueryArenaRequest;
   readonly runId: string | null;
   readonly status: "queued" | "running" | "completed" | "failed";
   readonly phase: string | null;
@@ -36,6 +42,17 @@ export type QueryArenaEvidence = {
   readonly verified: boolean | null;
   readonly historyStored: boolean | null;
   readonly recipeStored: boolean | null;
+  readonly strategies: QueryArenaMetadata["strategies"];
+  readonly learningSource: NonNullable<
+    QueryArenaMetadata["learningSource"]
+  >;
+  readonly priorStrategy: QueryStrategy | null;
+  readonly priorEvidenceCount: number;
+  readonly trialEvents: NonNullable<QueryArenaMetadata["trialEvents"]>;
+  readonly candidateEvents: NonNullable<
+    QueryArenaMetadata["candidateEvents"]
+  >;
+  readonly candidates: readonly QueryArenaCandidate[];
   readonly error: string | null;
 };
 
@@ -263,13 +280,30 @@ export function AnalysisPerformanceProvider({
   const updateQueryArena = useCallback(
     (reportId: string, evidence: QueryArenaEvidence) => {
       pendingArena.current.set(reportId, evidence);
-      setReports((current) =>
-        current.map((report) =>
-          report.id === reportId
-            ? { ...report, queryArena: evidence }
-            : report,
-        ),
-      );
+      setReports((current) => {
+        const reportIndex = current.findIndex(
+          (report) => report.id === reportId,
+        );
+
+        if (reportIndex === -1) {
+          return current;
+        }
+
+        const report = current[reportIndex];
+
+        if (
+          report.queryArena !== null &&
+          JSON.stringify(report.queryArena) === JSON.stringify(evidence)
+        ) {
+          return current;
+        }
+
+        return current.map((candidate, index) =>
+          index === reportIndex
+            ? { ...candidate, queryArena: evidence }
+            : candidate,
+        );
+      });
     },
     [],
   );

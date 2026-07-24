@@ -4,6 +4,11 @@ import { semanticAnalysisRequestSchema } from "../analysis/semantic-plan";
 import { queryArenaTimeSeriesRequestSchema } from "../time-series/contracts";
 
 export const queryStrategySchema = z.enum(["baseline", "prewhere"]);
+export const queryArenaLearningSourceSchema = z.enum([
+  "exact",
+  "prior",
+  "none",
+]);
 
 export const queryFingerprintSchema = z.object({
   algorithm: z.literal("sha256-v1"),
@@ -57,6 +62,10 @@ export const queryArenaCandidateSchema = z.discriminatedUnion("status", [
 export const queryArenaResultSchema = z.object({
   arenaId: z.uuid(),
   signature: z.string().regex(/^[a-f0-9]{64}$/),
+  semanticFamilyHash: z.string().regex(/^[a-f0-9]{64}$/),
+  learningSource: queryArenaLearningSourceSchema,
+  priorStrategy: queryStrategySchema.nullable(),
+  priorEvidenceCount: z.number().int().nonnegative(),
   baselineStrategy: queryStrategySchema,
   candidates: z.array(queryArenaCandidateSchema).min(2),
   winner: queryStrategySchema.nullable(),
@@ -80,7 +89,20 @@ export const queryArenaMetadataSchema = z.object({
   phase: queryArenaPhaseSchema,
   progress: z.number().min(0).max(1),
   strategies: z.array(queryStrategySchema),
+  learningSource: queryArenaLearningSourceSchema.optional(),
+  priorStrategy: queryStrategySchema.nullable().optional(),
+  priorEvidenceCount: z.number().int().nonnegative().optional(),
   completedCandidates: z.number().int().min(0).max(2).optional(),
+  trialEvents: z
+    .array(
+      z.object({
+        strategy: queryStrategySchema,
+        trial: z.number().int().min(0).max(2),
+        durationMs: z.number().nonnegative(),
+      }),
+    )
+    .max(6)
+    .optional(),
   candidateEvents: z
     .array(
       z.object({
@@ -140,12 +162,17 @@ export const queryArenaRequestSchema = z.discriminatedUnion("kind", [
 
 export const queryArenaStartSchema = z.object({
   analysis: queryArenaRequestSchema,
+  requestId: z.string().trim().min(1).max(128),
 });
 
 export const queryArenaStartResponseSchema = z.object({
   runId: z.string().min(1),
   arenaId: z.uuid(),
   signature: z.string().regex(/^[a-f0-9]{64}$/),
+  semanticFamilyHash: z.string().regex(/^[a-f0-9]{64}$/),
+  learningSource: queryArenaLearningSourceSchema,
+  priorStrategy: queryStrategySchema.nullable(),
+  priorEvidenceCount: z.number().int().nonnegative(),
 });
 
 export const queryArenaSnapshotSchema = z.object({

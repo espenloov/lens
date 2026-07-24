@@ -5,22 +5,112 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-lens}
-      POSTGRES_USER: ${POSTGRES_USER:-lens}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lens}
+      POSTGRES_DB: lens
+      POSTGRES_USER: lens
+      POSTGRES_PASSWORD: lens
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/postgres/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+        - pg_isready -U lens -d lens
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  postgres-migrate:
+    image: postgres:17-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: lens
+      PGUSER: lens
+      PGPASSWORD: lens
+    volumes:
+      - ./db/postgres/migrations:/migrations:ro
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        for migration in /migrations/*.sql; do
+          echo "Applying $${migration}"
+          psql --set ON_ERROR_STOP=1 --file "$${migration}"
+        done
+    restart: "no"
+
+  clickhouse-migrate:
+    image: curlimages/curl:8.12.1
+    env_file:
+      - ./apps/web/.env.local
+    volumes:
+      - ./db/clickhouse/migrations:/migrations:ro
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        for migration in /migrations/*.sql; do
+          echo "Applying $${migration}"
+          awk 'BEGIN { RS = ";"; ORS = "\0" } NF { print }' "$${migration}" |
+            while IFS= read -r -d '' statement; do
+              curl --silent --show-error --fail-with-body \
+                --header "X-ClickHouse-User: $${CLICKHOUSE_USER}" \
+                --header "X-ClickHouse-Key: $${CLICKHOUSE_PASSWORD}" \
+                --data-binary "$${statement}" \
+                "$${CLICKHOUSE_HOST%/}/?database=$${CLICKHOUSE_DATABASE}"
+            done
+        done
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    depends_on:
+      postgres-migrate:
+        condition: service_completed_successfully
+      clickhouse-migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ./apps/web/.env.local
+    environment:
+      DATABASE_URL: postgresql://lens:lens@postgres:5432/lens
+    init: true
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch("http://127.0.0.1:3000").then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  trigger-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: trigger-worker
+    depends_on:
+      postgres-migrate:
+        condition: service_completed_successfully
+      clickhouse-migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ./apps/web/.env.local
+    environment:
+      DATABASE_URL: postgresql://lens:lens@postgres:5432/lens
+    init: true
+    restart: unless-stopped
 
 volumes:
   postgres_data:

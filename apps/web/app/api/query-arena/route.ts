@@ -8,9 +8,10 @@ import {
 } from "@/lib/query-arena/contracts";
 import { authorizeDataSourceRead } from "@/lib/data-sources/access";
 import {
-  createQueryArenaSignature,
+  createQueryArenaIdentity,
   createArenaId,
 } from "@/lib/query-arena/signature";
+import { getRecipeGuidance } from "@/lib/query-arena/recipe-registry";
 
 export const runtime = "nodejs";
 
@@ -36,8 +37,22 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const signature = createQueryArenaSignature(input.data.analysis);
-  const arenaId = createArenaId(signature);
+  const identity = createQueryArenaIdentity(input.data.analysis);
+  const signature = identity.executionSignature;
+  const arenaId = createArenaId(signature, input.data.requestId);
+  const guidance = await getRecipeGuidance(identity, {
+    recordLookup: false,
+  });
+  const learning =
+    guidance.isOk()
+      ? guidance.value
+      : {
+          source: "none" as const,
+          activeStrategy: null,
+          prior: null,
+        };
+  const preferredStrategy =
+    learning.activeStrategy ?? learning.prior?.strategy ?? null;
   const triggered = await ResultAsync.fromPromise(
     tasks.trigger<typeof queryArenaTask>(
       "query-arena",
@@ -45,6 +60,10 @@ export async function POST(request: Request): Promise<Response> {
         analysis: input.data.analysis,
         arenaId,
         signature,
+        semanticFamilyHash: identity.semanticFamilyHash,
+        learningSource: learning.source,
+        priorStrategy: preferredStrategy,
+        priorEvidenceCount: learning.prior?.evidenceCount ?? 0,
       },
       {
         idempotencyKey: arenaId,
@@ -54,11 +73,15 @@ export async function POST(request: Request): Promise<Response> {
           phase: "queued",
           progress: 0,
           strategies: ["baseline", "prewhere"],
+          learningSource: learning.source,
+          priorStrategy: preferredStrategy,
+          priorEvidenceCount: learning.prior?.evidenceCount ?? 0,
           dataset:
             input.data.analysis.kind === "semantic"
               ? input.data.analysis.request.plan.dataset
               : input.data.analysis.request.dataset,
           completedCandidates: 0,
+          trialEvents: [],
           candidateEvents: [],
         },
       },
@@ -78,6 +101,10 @@ export async function POST(request: Request): Promise<Response> {
       runId: triggered.value.id,
       arenaId,
       signature,
+      semanticFamilyHash: identity.semanticFamilyHash,
+      learningSource: learning.source,
+      priorStrategy: preferredStrategy,
+      priorEvidenceCount: learning.prior?.evidenceCount ?? 0,
     }),
     { status: 202 },
   );

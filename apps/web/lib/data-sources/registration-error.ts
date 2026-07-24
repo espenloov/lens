@@ -9,11 +9,27 @@ export function registrationFailureMessage(
   if (message !== undefined && message.length > 0) {
     try {
       const issues = z
-        .array(z.object({ message: z.string().min(1) }))
+        .array(
+          z.object({
+            message: z.string().min(1),
+            path: z
+              .array(z.union([z.string(), z.number()]))
+              .optional(),
+          }),
+        )
         .safeParse(JSON.parse(message));
 
       if (issues.success) {
-        return issues.data[0]?.message ?? "Dataset validation failed";
+        const issue = issues.data[0];
+
+        if (issue === undefined) {
+          return "Dataset validation failed";
+        }
+
+        const path = issue.path?.join(".");
+        return path === undefined || path.length === 0
+          ? issue.message
+          : `${path}: ${issue.message}`;
       }
     } catch {
       return message.slice(0, 320);

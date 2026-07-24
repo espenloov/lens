@@ -10,6 +10,9 @@ import type {
 type PerformanceHistoryRow = {
   readonly arena_id: string;
   readonly analysis_signature: string;
+  readonly semantic_family_hash: string;
+  readonly dataset: string;
+  readonly dataset_version: number;
   readonly strategy: QueryStrategy;
   readonly query_id: string | null;
   readonly round_trip_ms: number | null;
@@ -45,6 +48,9 @@ function toHistoryError(cause: unknown): PerformanceHistoryError {
 export function toPerformanceHistoryRows(input: {
   readonly arenaId: string;
   readonly signature: string;
+  readonly semanticFamilyHash: string;
+  readonly dataset: string;
+  readonly datasetVersion: number;
   readonly candidates: readonly QueryArenaCandidate[];
   readonly winner: QueryStrategy | null;
   readonly recordedAt: string;
@@ -55,6 +61,9 @@ export function toPerformanceHistoryRows(input: {
         {
           arena_id: input.arenaId,
           analysis_signature: input.signature,
+          semantic_family_hash: input.semanticFamilyHash,
+          dataset: input.dataset,
+          dataset_version: input.datasetVersion,
           strategy: candidate.strategy,
           query_id: null,
           round_trip_ms: null,
@@ -75,6 +84,9 @@ export function toPerformanceHistoryRows(input: {
     return candidate.trials.map((trial) => ({
       arena_id: input.arenaId,
       analysis_signature: input.signature,
+      semantic_family_hash: input.semanticFamilyHash,
+      dataset: input.dataset,
+      dataset_version: input.datasetVersion,
       strategy: candidate.strategy,
       query_id: trial.metrics.queryId,
       round_trip_ms: trial.metrics.roundTripMs,

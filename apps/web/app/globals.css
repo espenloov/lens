@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -147,6 +147,18 @@
   html {
     @apply font-sans;
   }
+  .maplibregl-ctrl-attrib {
+    @apply bg-background! text-muted-foreground! border-border! rounded-md! border! shadow-sm!;
+  }
+  .maplibregl-ctrl-attrib a {
+    @apply text-muted-foreground!;
+  }
+  .maplibregl-ctrl-attrib a:hover {
+    @apply text-foreground!;
+  }
+  .maplibregl-ctrl-attrib-button {
+    @apply bg-transparent! dark:invert;
+  }
 }
 
 @layer components {
@@ -160,6 +172,55 @@
       radial-gradient(circle at 87% 14%, rgb(242 186 189 / 18%), transparent 31rem),
       radial-gradient(circle at 54% 100%, rgb(135 150 214 / 17%), transparent 34rem),
       var(--canvas);
+  }
+
+  .lens-map {
+    position: absolute !important;
+    inset: 0;
+    background:
+      radial-gradient(circle at 28% 38%, rgb(105 124 199 / 20%), transparent 38%),
+      linear-gradient(145deg, #eef3f7, #e8eef4);
+  }
+
+  .lens-map .maplibregl-ctrl-attrib {
+    bottom: 5px;
+    right: 5px;
+    font-size: 8px;
+    opacity: 0.55;
+  }
+
+  .lens-map-marker {
+    position: relative;
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    border: 3px solid rgb(255 255 255 / 94%);
+    border-radius: 999px;
+    background: #697cc7;
+    box-shadow:
+      0 0 0 5px rgb(105 124 199 / 15%),
+      0 8px 16px rgb(45 57 84 / 22%);
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .lens-map-marker::after {
+    position: absolute;
+    inset: -0.55rem;
+    content: "";
+    border: 1px solid rgb(105 124 199 / 25%);
+    border-radius: inherit;
+    animation: map-marker-pulse 2.2s ease-out infinite;
+  }
+
+  .lens-map-marker:hover,
+  .lens-map-marker[data-selected="true"] {
+    transform: scale(1.22);
+    background: #21a8a3;
+    box-shadow:
+      0 0 0 7px rgb(33 197 190 / 17%),
+      0 10px 20px rgb(45 57 84 / 26%);
   }
 
   .lens-workspace {
@@ -832,12 +893,17 @@
   }
 
   .living-signal-point,
+  .lens-map-marker,
   .grammar-signal-cell,
   .grammar-signal-orb,
   .semantic-category-item,
   .semantic-category-fill,
   .semantic-category-orb {
     transition: none;
+  }
+
+  .lens-map-marker::after {
+    animation: none;
   }
 
   .semantic-category-item[aria-pressed="true"] {
@@ -938,6 +1004,18 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes map-marker-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.55);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
   }
 }
 

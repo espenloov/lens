@@ -27,9 +27,12 @@ function toClientError(cause: unknown): QueryArenaClientError {
   };
 }
 
-export function startQueryArena(analysis: QueryArenaRequest) {
+export function startQueryArena(
+  analysis: QueryArenaRequest,
+  requestId: string,
+) {
   return ResultAsync.fromPromise(
-    axios.post<unknown>("/api/query-arena", { analysis }),
+    axios.post<unknown>("/api/query-arena", { analysis, requestId }),
     toClientError,
   ).andThen((response) =>
     ResultAsync.fromPromise(

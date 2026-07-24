@@ -1,6 +1,15 @@
 {
   "name": "lens-wasm",
+  "collaborators": [
+    "Espen van Ingen"
+  ],
+  "description": "High-performance Arrow analytics components for Lens",
   "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/espenloov/lens"
+  },
   "files": [
     "lens_wasm_node_bg.wasm",
     "lens_wasm_node.js",

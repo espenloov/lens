@@ -123,7 +123,7 @@ export const analyticalTableManifestSchema = z
     contract: z.literal("analytical_table/v1"),
     identifier: analyticalIdentifierSchema.nullable(),
     time: analyticalTimeSchema.nullable(),
-    measures: z.array(analyticalMeasureSchema).min(1).max(32),
+    measures: z.array(analyticalMeasureSchema).max(32),
     dimensions: z.array(analyticalDimensionSchema).max(64),
     geography: analyticalGeographySchema.nullable(),
   })
@@ -304,7 +304,6 @@ export function deriveAnalyticalCapabilities(
   coverage?: AnalyticalCoverage,
 ): AnalyticalCapabilities {
   const hasTime = manifest.time !== null;
-  const hasMeasure = manifest.measures.length > 0;
   const hasDimension = manifest.dimensions.length > 0;
   const compactDimensions = manifest.dimensions.filter(
     (dimension) => dimension.compact && dimension.codeExpression !== null,
@@ -315,7 +314,7 @@ export function deriveAnalyticalCapabilities(
 
   return analyticalCapabilitiesSchema.parse({
     operations: {
-      trend: hasTime && hasMeasure,
+      trend: hasTime,
       comparison: hasDimension,
       ranking: hasDimension,
       distribution: distributionMeasures.length > 0,
@@ -323,7 +322,6 @@ export function deriveAnalyticalCapabilities(
       heatmap: false,
       anomaly:
         hasTime &&
-        hasMeasure &&
         (coverage === undefined || hasFiveYearsOfCoverage(coverage)),
       exploration: false,
     },

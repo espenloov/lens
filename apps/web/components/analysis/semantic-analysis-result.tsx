@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Zap } from "lucide-react";
 
@@ -24,6 +24,7 @@ import {
 } from "@/lib/analysis/semantic-load";
 import type { SemanticAnalysisToolOutput } from "@/lib/analysis/semantic-tool-output";
 import { queryArenaSemanticRequestSchema } from "@/lib/query-arena/contracts";
+import type { QueryArenaRequest } from "@/lib/query-arena/contracts";
 
 import { QueryArenaReporter } from "./query-arena-reporter";
 
@@ -1114,6 +1115,17 @@ function SemanticVisualResult({
 export function SemanticAnalysisResult({
   output,
 }: SemanticAnalysisResultProps) {
+  const readyRequest = output.status === "ready" ? output.request : null;
+  const arenaAnalysis = useMemo<QueryArenaRequest | null>(() => {
+    if (readyRequest === null) {
+      return null;
+    }
+
+    const parsed = queryArenaSemanticRequestSchema.safeParse(readyRequest);
+    return parsed.success
+      ? { kind: "semantic", request: parsed.data }
+      : null;
+  }, [readyRequest]);
   const { failAnalysis } = useAnalysisPerformance();
 
   useEffect(() => {
@@ -1135,12 +1147,19 @@ export function SemanticAnalysisResult({
     );
   }
 
-  return <ReadySemanticAnalysis output={output} />;
+  return (
+    <ReadySemanticAnalysis
+      arenaAnalysis={arenaAnalysis}
+      output={output}
+    />
+  );
 }
 
 function ReadySemanticAnalysis({
+  arenaAnalysis,
   output,
 }: {
+  readonly arenaAnalysis: QueryArenaRequest | null;
   readonly output: Extract<SemanticAnalysisToolOutput, { status: "ready" }>;
 }) {
   const { failAnalysis, reportAnalysis } = useAnalysisPerformance();
@@ -1222,15 +1241,11 @@ function ReadySemanticAnalysis({
   }
 
   const loaded = query.data.value;
-  const arenaRequest = queryArenaSemanticRequestSchema.safeParse(
-    output.request,
-  );
-
   return (
     <>
-      {loaded.queryId !== null && arenaRequest.success && (
+      {loaded.queryId !== null && arenaAnalysis !== null && (
         <QueryArenaReporter
-          analysis={{ kind: "semantic", request: arenaRequest.data }}
+          analysis={arenaAnalysis}
           currentStrategy={loaded.strategy}
           queryId={loaded.queryId}
         />
