@@ -650,7 +650,7 @@ export function GrammarAnalysis({ plan, request }: GrammarAnalysisProps) {
       <section className="glass-panel space-y-2 rounded-2xl p-6">
         <h2 className="text-xl font-medium">{plan.title}</h2>
         <p className="text-sm text-muted-foreground">
-          No transactions matched this analysis.
+          No records matched this analysis.
         </p>
       </section>
     );

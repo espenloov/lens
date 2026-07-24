@@ -8,11 +8,9 @@ import {
 } from "@/lib/analysis/semantic-plan";
 import { querySemanticAnalysisAsArrow } from "@/lib/clickhouse/semantic-arrow";
 import { authorizeDataSourceRead } from "@/lib/data-sources/access";
-import { getActiveRecipe } from "@/lib/query-arena/recipe-registry";
+import { getRecipeGuidance } from "@/lib/query-arena/recipe-registry";
 import { queryArenaSemanticRequestSchema } from "@/lib/query-arena/contracts";
-import {
-  createQueryArenaSignature,
-} from "@/lib/query-arena/signature";
+import { createQueryArenaIdentity } from "@/lib/query-arena/signature";
 
 export const runtime = "nodejs";
 
@@ -55,17 +53,17 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const arenaRequest = queryArenaSemanticRequestSchema.safeParse(input.value);
-  const signature = arenaRequest.success
-    ? createQueryArenaSignature({
+  const identity = arenaRequest.success
+    ? createQueryArenaIdentity({
         kind: "semantic",
         request: arenaRequest.data,
       })
     : null;
-  const preferredStrategy =
-    signature === null ? null : await getActiveRecipe(signature);
+  const guidance =
+    identity === null ? null : await getRecipeGuidance(identity);
   const strategy =
-    preferredStrategy?.isOk() === true
-      ? (preferredStrategy.value ?? "baseline")
+    guidance?.isOk() === true && guidance.value.source === "exact"
+      ? guidance.value.activeStrategy
       : "baseline";
   const result = await querySemanticAnalysisAsArrow(input.value, { strategy });
 
@@ -91,9 +89,14 @@ export async function POST(request: Request): Promise<Response> {
       "X-Lens-Arrow-Contract": `${result.value.shape}/v1`,
       "X-Lens-Query-Strategy": strategy,
       "X-Content-Type-Options": "nosniff",
-      ...(signature === null
+      ...(identity === null
         ? {}
-        : { "X-Lens-Analysis-Signature": signature }),
+        : {
+            "X-Lens-Analysis-Signature": identity.executionSignature,
+            "X-Lens-Semantic-Family": identity.semanticFamilyHash,
+            "X-Lens-Learning-Source":
+              guidance?.isOk() === true ? guidance.value.source : "none",
+          }),
     },
   });
 }

@@ -112,22 +112,22 @@ export function validateAnalyticalCompatibility(
     ...(manifest.time === null
       ? []
       : [
-          `toString(min(${manifest.time.expression})) AS time_from`,
-          `toString(max(${manifest.time.expression})) AS time_to`,
-          `toUInt64(countIf(isNull(${manifest.time.expression}))) AS invalid_time_count`,
+          `toString(toDate(min(${manifest.time.expression}))) AS time_from`,
+          `toString(toDate(max(${manifest.time.expression}))) AS time_to`,
+          `toUInt64(countIf(isNotNull(${manifest.time.expression}))) AS valid_time_count`,
         ]),
     ...(manifest.identifier === null
       ? []
       : [
-          `toUInt64(countIf(isNull(${manifest.identifier.expression}))) AS invalid_identifier_count`,
+          `toUInt64(countIf(isNotNull(${manifest.identifier.expression}))) AS valid_identifier_count`,
         ]),
-    ...manifest.measures.map(
-      (measure, index) =>
-        `toUInt64(countIf(isNull(${measure.expression}) OR NOT isFinite(toFloat64(${measure.expression})))) AS invalid_measure_${index}`,
-    ),
+    ...manifest.measures.flatMap((measure, index) => [
+      `toUInt64(countIf(isNotNull(${measure.expression}) AND isFinite(toFloat64(${measure.expression})))) AS valid_measure_${index}`,
+      `toUInt64(countIf(isNotNull(${measure.expression}) AND NOT isFinite(toFloat64(${measure.expression})))) AS invalid_measure_${index}`,
+    ]),
     ...manifest.dimensions.map(
       (dimension, index) =>
-        `toUInt64(countIf(isNull(${dimension.filterExpression}))) AS invalid_dimension_${index}`,
+        `toUInt64(countIf(isNotNull(${dimension.filterExpression}))) AS valid_dimension_${index}`,
     ),
   ];
 
@@ -166,26 +166,27 @@ export function validateAnalyticalCompatibility(
 
       const row = profile.data[0]!;
       const rowCount = Number(row.row_count);
-      const invalidTimeCount = Number(row.invalid_time_count ?? 0);
-      const invalidIdentifierCount = Number(
-        row.invalid_identifier_count ?? 0,
+      const validTimeCount = Number(row.valid_time_count ?? 0);
+      const validIdentifierCount = Number(
+        row.valid_identifier_count ?? 0,
       );
       const measureChecks = manifest.measures.map((measure, index) => {
+        const valid = Number(row[`valid_measure_${index}`] ?? 0);
         const invalid = Number(row[`invalid_measure_${index}`] ?? 0);
         return {
           key: `measure_${measure.key}`,
-          label: `${measure.label} values are numeric`,
-          passed: invalid === 0,
-          detail: `${invalid.toLocaleString()} invalid values`,
+          label: `${measure.label} has usable numeric values`,
+          passed: valid > 0 && invalid === 0,
+          detail: `${valid.toLocaleString()} usable · ${invalid.toLocaleString()} non-finite`,
         };
       });
       const dimensionChecks = manifest.dimensions.map((dimension, index) => {
-        const invalid = Number(row[`invalid_dimension_${index}`] ?? 0);
+        const valid = Number(row[`valid_dimension_${index}`] ?? 0);
         return {
           key: `dimension_${dimension.key}`,
-          label: `${dimension.label} values are present`,
-          passed: invalid === 0,
-          detail: `${invalid.toLocaleString()} missing values`,
+          label: `${dimension.label} has usable values`,
+          passed: valid > 0,
+          detail: `${valid.toLocaleString()} populated values`,
         };
       });
       const roleChecks = [
@@ -194,9 +195,9 @@ export function validateAnalyticalCompatibility(
           : [
               {
                 key: "time",
-                label: `${manifest.time.label} values are present`,
-                passed: invalidTimeCount === 0,
-                detail: `${invalidTimeCount.toLocaleString()} missing values`,
+                label: `${manifest.time.label} has usable values`,
+                passed: validTimeCount > 0,
+                detail: `${validTimeCount.toLocaleString()} populated values`,
               },
             ]),
         ...(manifest.identifier === null
@@ -204,9 +205,9 @@ export function validateAnalyticalCompatibility(
           : [
               {
                 key: "identifier",
-                label: `${manifest.identifier.label} values are present`,
-                passed: invalidIdentifierCount === 0,
-                detail: `${invalidIdentifierCount.toLocaleString()} missing values`,
+                label: `${manifest.identifier.label} has usable values`,
+                passed: validIdentifierCount > 0,
+                detail: `${validIdentifierCount.toLocaleString()} populated values`,
               },
             ]),
         ...measureChecks,
@@ -242,17 +243,24 @@ export function validateAnalyticalCompatibility(
       }
 
       const primaryMeasure = manifest.measures[0];
+      const verificationValue =
+        primaryMeasure === undefined
+          ? "toFloat64(count())"
+          : compileMeasureAggregation(
+              primaryMeasure,
+              primaryMeasure.defaultAggregation,
+            );
       const verificationProjection =
         manifest.time === null
           ? `
               toString('All rows') AS category,
-              ${compileMeasureAggregation(primaryMeasure, primaryMeasure.defaultAggregation)} AS value,
+              ${verificationValue} AS value,
               toUInt64(count()) AS observation_count
             `
           : `
               toDate(toStartOfYear(${manifest.time.expression})) AS period_start,
               toString('All rows') AS series,
-              ${compileMeasureAggregation(primaryMeasure, primaryMeasure.defaultAggregation)} AS value,
+              ${verificationValue} AS value,
               toUInt64(count()) AS observation_count
             `;
       const verificationGroup =

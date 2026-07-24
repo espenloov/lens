@@ -241,7 +241,7 @@ function ClickHouseView({
   readonly profile: DataSourceProfile;
   readonly source: DataSourceSummary | null;
 }) {
-  const { latest, reports } = useAnalysisPerformance();
+  const { reports } = useAnalysisPerformance();
   const table = source?.table ?? "pp_complete";
   const rows = source?.rowCount ?? 28_919_900;
   const dateFrom = source?.dateFrom ?? "1995-01-01";
@@ -410,52 +410,6 @@ function ClickHouseView({
           )}
         </section>
 
-        <section className="analysis-tile col-span-12 grid items-center gap-3 p-4 sm:grid-cols-3 lg:col-span-7">
-          {[
-            {
-              detail:
-                latest === null
-                  ? "Durable agent"
-                  : formatPerformanceDuration(latest.triggerMs),
-              label: "Orchestrate",
-              technology: "trigger" as const,
-            },
-            {
-              detail:
-                latest === null
-                  ? `${analysisModes} analysis modes`
-                  : formatPerformanceDuration(latest.roundTripMs),
-              label: "Analyze",
-              technology: "clickhouse" as const,
-            },
-            {
-              detail:
-                latest === null
-                  ? "Winning recipes"
-                  : `${reports.length} recorded`,
-              label: "Remember",
-              technology: "postgres" as const,
-            },
-          ].map((step, index) => (
-            <div className="flex items-center gap-3 px-3" key={step.label}>
-              <TechnologyMark technology={step.technology} />
-              <div>
-                <p className="text-xs font-semibold text-[var(--ink)]">
-                  {step.label}
-                </p>
-                <p className="mt-1 font-mono text-[9px] text-[var(--ink-tertiary)]">
-                  {step.detail}
-                </p>
-              </div>
-              {index < 2 && (
-                <ArrowRight
-                  aria-hidden="true"
-                  className="ml-auto hidden size-4 text-[var(--ink-tertiary)] sm:block"
-                />
-              )}
-            </div>
-          ))}
-        </section>
       </div>
     </div>
   );

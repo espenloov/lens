@@ -13,14 +13,17 @@ import {
   type QueryArenaClientError,
 } from "./client";
 
-export function useQueryArena(analysis: QueryArenaRequest) {
+export function useQueryArena(
+  analysis: QueryArenaRequest,
+  requestId: string,
+) {
   const [snapshot, setSnapshot] = useState<QueryArenaSnapshot | null>(null);
   const [streamError, setStreamError] = useState<QueryArenaClientError | null>(
     null,
   );
   const start = useQuery({
-    queryKey: ["query-arena", analysis],
-    queryFn: async () => startQueryArena(analysis),
+    queryKey: ["query-arena", requestId, analysis],
+    queryFn: async () => startQueryArena(analysis, requestId),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
@@ -89,6 +92,9 @@ export function useQueryArena(analysis: QueryArenaRequest) {
 
   return {
     runId: started?.runId ?? null,
+    learningSource: started?.learningSource ?? null,
+    priorStrategy: started?.priorStrategy ?? null,
+    priorEvidenceCount: started?.priorEvidenceCount ?? 0,
     snapshot,
     error: startError ?? streamError,
     isStarting: start.isPending,

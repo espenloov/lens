@@ -8,7 +8,10 @@ import {
 import {
   createAnalysisSignature,
   createArenaId,
+  createQueryArenaIdentity,
   createQueryArenaSignature,
+  createSemanticFamilyHash,
+  normalizeSemanticFamily,
   supportsQueryArena,
 } from "./signature";
 
@@ -55,19 +58,36 @@ describe("createAnalysisSignature", () => {
 });
 
 describe("createArenaId", () => {
-  it("deduplicates the same analysis within an hourly benchmark window", () => {
+  it("deduplicates retries for one answer without collapsing later answers", () => {
     const signature = createAnalysisSignature(request(["Manchester"]));
 
-    expect(createArenaId(signature, new Date("2026-07-22T12:05:00Z"))).toBe(
-      createArenaId(signature, new Date("2026-07-22T12:59:00Z")),
+    expect(createArenaId(signature, "query-1")).toBe(
+      createArenaId(signature, "query-1"),
     );
-    expect(createArenaId(signature, new Date("2026-07-22T13:00:00Z"))).not.toBe(
-      createArenaId(signature, new Date("2026-07-22T12:59:00Z")),
+    expect(createArenaId(signature, "query-2")).not.toBe(
+      createArenaId(signature, "query-1"),
     );
   });
 });
 
 describe("createQueryArenaSignature", () => {
+  it("reuses a physical recipe for sibling filters on the same dataset", () => {
+    const manchester = request(["Manchester"]);
+    const liverpool = request(["Liverpool"]);
+
+    expect(
+      createQueryArenaSignature({
+        kind: "time_series",
+        request: manchester,
+      }),
+    ).toBe(
+      createQueryArenaSignature({
+        kind: "time_series",
+        request: liverpool,
+      }),
+    );
+  });
+
   it("pins generic recipes to dataset versions but ignores presentation copy", () => {
     const semantic = semanticAnalysisRequestSchema.parse({
       shape: "time_series",
@@ -132,5 +152,188 @@ describe("createQueryArenaSignature", () => {
     ).not.toBe(
       createQueryArenaSignature({ kind: "semantic", request: nextVersion }),
     );
+  });
+
+  it("keeps exact execution recipes local to a dataset and version", () => {
+    const taxi = semanticAnalysisRequestSchema.parse({
+      shape: "time_series",
+      transform: "value",
+      presentation: {
+        valueLabel: "Fare",
+        valueFormat: {
+          kind: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        },
+        categoryLabel: "Payment type",
+        distributionMeasureFormat: null,
+      },
+      plan: {
+        version: 1,
+        dataset: "nyc_taxi",
+        datasetVersion: 1,
+        title: "Monthly fares",
+        explanation: "Taxi analysis.",
+        operation: "trend",
+        metric: {
+          kind: "measure",
+          measure: "fare_amount",
+          aggregation: "average",
+        },
+        interval: "month",
+        splitBy: "payment_type",
+        filters: {
+          timeRange: {
+            from: "2010-01-01",
+            to: "2020-12-31",
+          },
+          dimensions: [],
+          measures: [],
+        },
+      },
+    });
+    const telemetry = semanticAnalysisRequestSchema.parse({
+      ...taxi,
+      plan: {
+        ...taxi.plan,
+        dataset: "network_telemetry",
+        datasetVersion: 3,
+        metric: {
+          kind: "measure",
+          measure: "latency_ms",
+          aggregation: "average",
+        },
+        splitBy: "service",
+      },
+    });
+
+    const taxiIdentity = createQueryArenaIdentity({
+      kind: "semantic",
+      request: taxi,
+    });
+    const telemetryIdentity = createQueryArenaIdentity({
+      kind: "semantic",
+      request: telemetry,
+    });
+
+    expect(taxiIdentity.executionSignature).not.toBe(
+      telemetryIdentity.executionSignature,
+    );
+    expect(taxiIdentity.semanticFamilyHash).toBe(
+      telemetryIdentity.semanticFamilyHash,
+    );
+  });
+
+  it("does not include literal dimension names or values in a semantic family", () => {
+    const first = semanticAnalysisRequestSchema.parse({
+      shape: "time_series",
+      transform: "value",
+      presentation: {
+        valueLabel: "Fare",
+        valueFormat: {
+          kind: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        },
+        categoryLabel: "Zone",
+        distributionMeasureFormat: null,
+      },
+      plan: {
+        version: 1,
+        dataset: "nyc_taxi",
+        datasetVersion: 1,
+        title: "Fares",
+        explanation: "First analysis.",
+        operation: "trend",
+        metric: {
+          kind: "measure",
+          measure: "fare_amount",
+          aggregation: "average",
+        },
+        interval: "month",
+        splitBy: "pickup_zone",
+        filters: {
+          timeRange: {
+            from: "2020-01-01",
+            to: "2020-12-31",
+          },
+          dimensions: [
+            {
+              dimension: "pickup_zone",
+              values: ["Queens", "Brooklyn"],
+            },
+          ],
+          measures: [],
+        },
+      },
+    });
+    const renamed = semanticAnalysisRequestSchema.parse({
+      ...first,
+      plan: {
+        ...first.plan,
+        dataset: "service_logs",
+        metric: {
+          kind: "measure",
+          measure: "duration_ms",
+          aggregation: "average",
+        },
+        splitBy: "service",
+        filters: {
+          ...first.plan.filters,
+          dimensions: [
+            {
+              dimension: "service",
+              values: ["api", "worker"],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      createSemanticFamilyHash({ kind: "semantic", request: first }),
+    ).toBe(
+      createSemanticFamilyHash({ kind: "semantic", request: renamed }),
+    );
+  });
+
+  it("separates families when the compute shape changes", () => {
+    const comparison = request(["Manchester", "Liverpool"]);
+    const trend = timeSeriesRequestSchema.parse({
+      ...comparison,
+      operation: "trend",
+      seriesBy: null,
+    });
+
+    expect(
+      createSemanticFamilyHash({
+        kind: "time_series",
+        request: comparison,
+      }),
+    ).not.toBe(
+      createSemanticFamilyHash({
+        kind: "time_series",
+        request: trend,
+      }),
+    );
+  });
+
+  it("classifies filter cardinality without retaining private values", () => {
+    const normalized = normalizeSemanticFamily({
+      kind: "time_series",
+      request: request(["Manchester", "Liverpool"]),
+    });
+
+    expect(JSON.stringify(normalized)).not.toContain("MANCHESTER");
+    expect(JSON.stringify(normalized)).not.toContain("LIVERPOOL");
+    expect(normalized).toMatchObject({
+      grouping: {
+        dimensions: 1,
+        cardinality: "small",
+      },
+      filters: {
+        dimensions: ["small"],
+      },
+    });
   });
 });

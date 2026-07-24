@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  Database,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ArrowRight, Database, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -47,12 +42,11 @@ export function DataSourceSelection() {
     staleTime: 10_000,
     retry: false,
   });
-  const registry =
-    sources.data?.isOk() === true ? sources.data.value : null;
-  const availableSources =
-    registry?.sources ?? [toDataSourceSummary(BUILTIN_DATA_SOURCE, true)];
-  const error =
-    sources.data?.isErr() === true ? sources.data.error : null;
+  const registry = sources.data?.isOk() === true ? sources.data.value : null;
+  const availableSources = registry?.sources ?? [
+    toDataSourceSummary(BUILTIN_DATA_SOURCE, true),
+  ];
+  const error = sources.data?.isErr() === true ? sources.data.error : null;
   const connectionLabel = sources.isLoading
     ? "Checking ClickHouse"
     : registry === null
@@ -97,7 +91,9 @@ export function DataSourceSelection() {
           >
             <BrandMark label size={40} />
           </button>
-          <span className="text-xs text-[var(--ink-tertiary)]">Add data source</span>
+          <span className="text-xs text-[var(--ink-tertiary)]">
+            Add data source
+          </span>
         </header>
         <div className="min-h-0 p-4 sm:p-6">
           <DataSourceManager
@@ -134,14 +130,15 @@ export function DataSourceSelection() {
               Ask your data. Get a dashboard.
             </h1>
             <p className="mt-5 max-w-sm text-sm leading-6 text-[var(--ink-secondary)]">
-              Select a source and turn millions of rows into an interactive answer.
+              Select a source and turn millions of rows into an interactive
+              answer.
             </p>
           </div>
-          <div className="relative z-10 mt-8 flex items-end justify-between">
-            <span className="rounded-full border border-white/80 bg-white/55 px-3 py-1.5 text-[11px] font-medium text-[var(--ink-secondary)] backdrop-blur-xl">
-              ClickHouse · Arrow · Rust
-            </span>
-            <BrandMark className="drop-shadow-[0_22px_30px_rgb(45_57_84_/_18%)]" size={132} />
+          <div className="relative z-10 mt-8 flex items-end justify-end">
+            <BrandMark
+              className="drop-shadow-[0_22px_30px_rgb(45_57_84_/_18%)]"
+              size={132}
+            />
           </div>
         </section>
 
@@ -191,7 +188,9 @@ export function DataSourceSelection() {
                         <span className="grid size-10 place-items-center rounded-[0.9rem] bg-[#f5c400]/13 text-[#8b7100]">
                           <Database aria-hidden="true" className="size-4" />
                         </span>
-                        <span className={`flex items-center gap-1.5 text-[10px] font-semibold text-[#176f6b] ${source.builtin ? "" : "mr-9"}`}>
+                        <span
+                          className={`flex items-center gap-1.5 text-[10px] font-semibold text-[#176f6b] ${source.builtin ? "" : "mr-9"}`}
+                        >
                           <span className="size-1.5 rounded-full bg-[#21c5be]" />
                           Ready
                         </span>

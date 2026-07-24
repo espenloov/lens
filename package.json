@@ -4,12 +4,29 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev:web": "pnpm --dir apps/web dev",
-    "dev:trigger": "pnpm dlx trigger.dev@4.5.6 dev start --config apps/web/trigger.config.ts --env-file apps/web/.env.local",
+    "dev:trigger": "trigger dev start --config apps/web/trigger.config.ts --env-file apps/web/.env.local --skip-update-check",
+    "dev:trigger:docker": "trigger dev start --config apps/web/trigger.config.ts --skip-update-check --skip-telemetry",
     "build:web": "pnpm --dir apps/web build",
     "lint:web": "pnpm --dir apps/web lint",
+    "test:web": "pnpm --dir apps/web test",
+    "typecheck:web": "pnpm --dir apps/web exec tsc --noEmit",
     "build:wasm": "pnpm build:wasm:web && pnpm build:wasm:node && node scripts/prepare-wasm-package.mjs",
-    "build:wasm:web": "wasm-pack build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm",
-    "build:wasm:node": "wasm-pack build crates/lens-wasm --target nodejs --release --out-dir ../../apps/web/lib/wasm/lens-node --out-name lens_wasm_node",
+    "build:wasm:web": "node scripts/run-wasm-pack.mjs build crates/lens-wasm --target web --release --out-dir ../../apps/web/lib/wasm/lens --out-name lens_wasm",
+    "build:wasm:node": "node scripts/run-wasm-pack.mjs build crates/lens-wasm --target nodejs --release --out-dir ../../apps/web/lib/wasm/lens-node --out-name lens_wasm_node",
+    "verify": "pnpm test:web && pnpm typecheck:web && pnpm lint:web && pnpm build:wasm && pnpm build:web && cargo fmt --all -- --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings",
     "benchmark:formats": "pnpm --dir apps/web exec node --env-file=$PWD/apps/web/.env.local --max-old-space-size=2048 $PWD/apps/web/scripts/benchmark-exploration-formats.mjs"
+  },
+  "devDependencies": {
+    "trigger.dev": "4.5.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "@opentelemetry/core@<2.8.0": "2.10.0",
+      "cookie@<0.7.0": "0.7.2",
+      "engine.io@<6.6.7": "6.6.9",
+      "postcss@<8.5.12": "8.5.19",
+      "sharp@<0.35.0": "0.35.3",
+      "ws@>=8.0.0 <8.21.0": "8.21.1"
+    }
   }
 }

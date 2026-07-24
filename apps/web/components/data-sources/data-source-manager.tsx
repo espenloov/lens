@@ -38,6 +38,7 @@ import type {
   InspectedRelation,
   RegistrationSnapshot,
 } from "@/lib/data-sources/contracts";
+import { createMappingTemplate } from "@/lib/data-sources/schema-inference";
 
 type DataSourceManagerProps = {
   readonly initialAdding?: boolean;
@@ -60,71 +61,6 @@ const INITIAL_FORM: FormState = {
   table: "",
   mappingSql: "",
 };
-
-function semanticKey(value: string): string {
-  const normalized = value
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toLowerCase();
-  const prefixed = /^[a-z]/.test(normalized)
-    ? normalized
-    : `field_${normalized}`;
-  return prefixed.slice(0, 64);
-}
-
-function mappingTemplate(relation: InspectedRelation): string {
-  const temporal = relation.columns.find((column) =>
-    /\bDate(?:Time)?(?:32|64)?\b/i.test(column.type),
-  );
-  const numeric = relation.columns
-    .filter(
-      (column) =>
-        /\b(?:U?Int\d*|Float\d*|Decimal)\b/i.test(column.type) &&
-        !/^Nullable\(/i.test(column.type) &&
-        !/(?:^|_)(?:id|year|month|day|type|status|code|flag)(?:_|$)|^is_/i.test(
-          column.name,
-        ) &&
-        !/(?:longitude|latitude|coordinate)/i.test(column.name),
-    )
-    .slice(0, 4);
-  const dimensions = relation.columns
-    .filter(
-      (column) =>
-        /\b(?:String|Enum|Bool)\b/i.test(column.type) ||
-        /(?:^|_)(?:type|status|code|flag)(?:_|$)|^is_/i.test(column.name),
-    )
-    .filter((column) => column.name !== temporal?.name)
-    .slice(0, 6);
-  const selected = [
-    ...(temporal === undefined
-      ? []
-      : [
-          {
-            expression: `toDate(${temporal.name})`,
-            alias: semanticKey(temporal.name),
-          },
-        ]),
-    ...numeric.map((column) => ({
-      expression: `toFloat64(${column.name})`,
-      alias: semanticKey(column.name),
-    })),
-    ...dimensions.map((column) => ({
-      expression: `toString(${column.name})`,
-      alias: semanticKey(column.name),
-    })),
-  ];
-  const unique = selected.filter(
-    (entry, index) =>
-      selected.findIndex((candidate) => candidate.alias === entry.alias) ===
-      index,
-  );
-  const projections = unique
-    .map(({ expression, alias }) => `  ${expression} AS ${alias}`)
-    .join(",\n");
-
-  return `SELECT\n${projections}\nFROM ${relation.database}.${relation.table}`;
-}
 
 function formatRows(value: number): string {
   return new Intl.NumberFormat("en-GB", {
@@ -206,7 +142,7 @@ export function DataSourceManager({
         table: table.table,
         displayName: displayName(table.table),
         slug: datasetSlug(table.table),
-        mappingSql: mappingTemplate(result.value),
+        mappingSql: createMappingTemplate(result.value),
       }));
       setClientError(null);
     },
@@ -237,6 +173,11 @@ export function DataSourceManager({
         table: form.table,
         mappingSql: form.mappingSql,
       }, adminToken),
+    onMutate: () => {
+      setRunId(null);
+      setSnapshot(null);
+      setClientError(null);
+    },
     onSuccess: (result) => {
       if (result.isErr()) {
         setClientError(result.error);
@@ -299,9 +240,15 @@ export function DataSourceManager({
           nextSnapshot.result?.status === "compatible"
         ) {
           void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+          void queryClient.invalidateQueries({
+            queryKey: ["data-source-discovery"],
+          });
         }
       },
-      setClientError,
+      (error) => {
+        setRunId(null);
+        setClientError(error);
+      },
     );
   }, [queryClient, runId]);
 
@@ -346,6 +293,9 @@ export function DataSourceManager({
       return;
     }
 
+    setRunId(null);
+    setSnapshot(null);
+    setClientError(null);
     inspectMutation.mutate(table);
   }
 

@@ -12,6 +12,10 @@ import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 import type { TimeSeriesLoadResult } from "@/lib/time-series/load";
 import { supportsQueryArena } from "@/lib/query-arena/signature";
 import {
+  locationKey,
+  resolveTrustedLocations,
+} from "@/lib/geography/trusted-locations";
+import {
   DeepDiveActions,
   type AnalysisDeepDiveAction,
 } from "./analysis-exploration";
@@ -23,8 +27,10 @@ import {
   formatPrice,
 } from "./formatters";
 import { AnalysisEvidenceLink } from "./analysis-evidence-link";
+import { GeographicContextCard } from "./geographic-context-card";
 import { InsightHeader } from "./insight-header";
 import { LivingDashboard } from "./living-dashboard";
+import { calculateTimeSeriesScale } from "./time-series-scale";
 
 type TimeSeriesTraceProps = {
   readonly title: string;
@@ -177,6 +183,10 @@ export function TimeSeriesTrace({
   const [selectedSeriesIndex, setSelectedSeriesIndex] = useState<number | null>(
     null,
   );
+  const [selectedLocationKey, setSelectedLocationKey] = useState<string | null>(
+    null,
+  );
+  const [scaleMode, setScaleMode] = useState<"focus" | "full">("focus");
   const { containerRef, width } = useContainerWidth();
   const titleId = useId();
   const descriptionId = useId();
@@ -197,6 +207,27 @@ export function TimeSeriesTrace({
       derived.kind === "anomaly_score" ||
       derived.validity[row] === 1,
   );
+  const finiteValues = visibleRows
+    .map((row) => displayValues[row])
+    .filter(Number.isFinite);
+  const scale = calculateTimeSeriesScale(finiteValues, derived === null);
+  const focusedScale = scale.clippedCount > 0 && scaleMode === "focus";
+  const mappedLocations = useMemo(
+    () => resolveTrustedLocations(request),
+    [request],
+  );
+  const geographySeries =
+    request.filters.location !== null &&
+    request.seriesBy === request.filters.location.level;
+  const selectedSeriesLocationKey =
+    geographySeries && selectedSeriesIndex !== null
+      ? locationKey(columns.seriesNames[selectedSeriesIndex] ?? "")
+      : null;
+  const activeLocationKey =
+    selectedSeriesLocationKey ??
+    selectedLocationKey ??
+    mappedLocations[0]?.key ??
+    null;
 
   if (periods.length === 0 || displayValues.length === 0) {
     return (
@@ -221,22 +252,12 @@ export function TimeSeriesTrace({
       ? margin.left + plotWidth / 2
       : margin.left + (index / (periods.length - 1)) * plotWidth;
   };
-  let minimumValue = Number.POSITIVE_INFINITY;
-  let maximumValue = Number.NEGATIVE_INFINITY;
-
-  for (let row = 0; row < displayValues.length; row += 1) {
-    if (
-      derived !== null &&
-      derived.kind !== "anomaly_score" &&
-      derived.validity[row] !== 1
-    ) {
-      continue;
-    }
-
-    const value = displayValues[row];
-    minimumValue = Math.min(minimumValue, value);
-    maximumValue = Math.max(maximumValue, value);
-  }
+  const minimumValue = focusedScale
+    ? scale.focusMinimum
+    : scale.fullMinimum;
+  const maximumValue = focusedScale
+    ? scale.focusMaximum
+    : scale.fullMaximum;
 
   if (!Number.isFinite(minimumValue) || !Number.isFinite(maximumValue)) {
     return (
@@ -258,8 +279,20 @@ export function TimeSeriesTrace({
     : Math.max(0, domainMinimum - valueRange * 0.1);
   const paddedMaximum = domainMaximum + valueRange * 0.1;
   const paddedRange = paddedMaximum - paddedMinimum;
-  const yForValue = (value: number) =>
-    margin.top + ((paddedMaximum - value) / paddedRange) * plotHeight;
+  const yForValue = (value: number) => {
+    const visibleValue = Math.min(
+      paddedMaximum,
+      Math.max(paddedMinimum, value),
+    );
+
+    return (
+      margin.top +
+      ((paddedMaximum - visibleValue) / paddedRange) * plotHeight
+    );
+  };
+  const isClipped = (value: number) =>
+    focusedScale &&
+    (value < scale.focusMinimum || value > scale.focusMaximum);
   const pathForRows = (rows: readonly number[], values: ArrayLike<number>) =>
     rows
       .map((row, index) => {
@@ -374,7 +407,10 @@ export function TimeSeriesTrace({
       : ((displayValues[lastRow] - displayValues[firstRow]) /
           Math.abs(displayValues[firstRow])) *
         100;
-  const peakRow = [...visibleRows].sort(
+  const peakCandidates = focusedScale
+    ? visibleRows.filter((row) => !isClipped(displayValues[row]))
+    : visibleRows;
+  const peakRow = [...peakCandidates].sort(
     (left, right) =>
       Math.abs(displayValues[right]) - Math.abs(displayValues[left]),
   )[0];
@@ -409,19 +445,37 @@ export function TimeSeriesTrace({
           />
         </div>
 
-        <div className="mb-2 mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          {columns.seriesNames.map((series, index) => (
-            <span className="inline-flex items-center gap-2" key={series}>
-              <span
-                aria-hidden="true"
-                className="size-2 rounded-full"
-                style={{
-                  backgroundColor: SERIES_COLORS[index % SERIES_COLORS.length],
-                }}
-              />
-              {series}
-            </span>
-          ))}
+        <div className="mb-2 mt-3 flex items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {columns.seriesNames.map((series, index) => (
+              <span className="inline-flex items-center gap-2" key={series}>
+                <span
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{
+                    backgroundColor: SERIES_COLORS[index % SERIES_COLORS.length],
+                  }}
+                />
+                {series}
+              </span>
+            ))}
+          </div>
+          {scale.clippedCount > 0 && (
+            <button
+              aria-pressed={scaleMode === "full"}
+              className="shrink-0 rounded-full border border-[var(--line-strong)] bg-white/65 px-2.5 py-1 text-[10px] font-semibold text-[var(--ink-secondary)] transition-colors hover:bg-white"
+              onClick={() =>
+                setScaleMode((current) =>
+                  current === "focus" ? "full" : "focus",
+                )
+              }
+              type="button"
+            >
+              {scaleMode === "focus"
+                ? `Show ${scale.clippedCount} extreme ${scale.clippedCount === 1 ? "point" : "points"}`
+                : "Focus typical range"}
+            </button>
+          )}
         </div>
 
         <div ref={containerRef}>
@@ -548,7 +602,9 @@ export function TimeSeriesTrace({
                       cx={xForPeriod(columns.periodStarts[row])}
                       cy={yForValue(displayValues[row])}
                       fill={
-                        columns.periodStarts[row] === selectedPeriod
+                        isClipped(displayValues[row])
+                          ? "#ff6372"
+                          : columns.periodStarts[row] === selectedPeriod
                           ? SERIES_COLORS[seriesIndex % SERIES_COLORS.length]
                           : "white"
                       }
@@ -575,18 +631,28 @@ export function TimeSeriesTrace({
                       }
                       r={columns.periodStarts[row] === selectedPeriod ? 4.5 : 2.5}
                       stroke={
-                        derived?.kind === "anomaly_score" &&
+                        isClipped(displayValues[row])
+                          ? "#b83448"
+                          : derived?.kind === "anomaly_score" &&
                         derived.flags[row] === 1
                           ? "var(--destructive)"
                           : SERIES_COLORS[seriesIndex % SERIES_COLORS.length]
                       }
                       strokeWidth={
-                        derived?.kind === "anomaly_score" &&
+                        isClipped(displayValues[row])
+                          ? 2.5
+                          : derived?.kind === "anomaly_score" &&
                         derived.flags[row] === 1
                           ? 3
                           : 1.5
                       }
-                    />
+                    >
+                      <title>
+                        {isClipped(displayValues[row])
+                          ? `${formatMetric(displayValues[row], request.metric, false, displaysPercent)} is held at the chart edge. Use Show extreme points to see the full range.`
+                          : formatMetric(displayValues[row], request.metric, false, displaysPercent)}
+                      </title>
+                    </circle>
                   ))}
                 </g>
               );
@@ -672,6 +738,27 @@ export function TimeSeriesTrace({
         className="col-span-12 grid gap-4 lg:col-span-4"
         data-living-role="context"
       >
+        {mappedLocations.length > 0 && (
+          <GeographicContextCard
+            locations={mappedLocations}
+            onSelect={(key) => {
+              setSelectedLocationKey(key);
+
+              if (!geographySeries) {
+                return;
+              }
+
+              const seriesIndex = columns.seriesNames.findIndex(
+                (seriesName) => locationKey(seriesName) === key,
+              );
+
+              if (seriesIndex >= 0) {
+                setSelectedSeriesIndex(seriesIndex);
+              }
+            }}
+            selectedKey={activeLocationKey}
+          />
+        )}
         <section className="analysis-tile p-4">
           <p className="text-xs font-medium text-[var(--ink-tertiary)]">Key finding</p>
           <p className="mt-2 text-xl font-semibold leading-6 tracking-[-0.025em] text-[var(--ink)]">
@@ -686,7 +773,7 @@ export function TimeSeriesTrace({
         <section className="analysis-tile p-4">
           <p className="text-xs font-medium text-[var(--ink-tertiary)]">{formatPeriod(selectedPeriod, request.interval)}</p>
           <div className="mt-3 space-y-2">
-            {selectedRows.map((row) => (
+            {selectedRows.slice(0, 4).map((row) => (
               <div className="flex items-end justify-between gap-4 border-b border-[var(--line)] pb-3" key={columns.seriesIndexes[row]}>
                 <span className="text-sm text-[var(--ink-secondary)]">{columns.seriesNames[columns.seriesIndexes[row]]}</span>
                 <span className="text-xl font-semibold tabular-nums text-[var(--ink)]">
@@ -694,31 +781,38 @@ export function TimeSeriesTrace({
                 </span>
               </div>
             ))}
+            {selectedRows.length > 4 && (
+              <p className="text-xs font-medium text-[var(--ink-tertiary)]">
+                +{selectedRows.length - 4} more series
+              </p>
+            )}
           </div>
         </section>
 
-        <section className="analysis-tile grid grid-cols-2 gap-4 p-4">
-          <div>
-            <p className="text-xs text-[var(--ink-tertiary)]">Change over range</p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
-              {rangeChange === null
-                ? "—"
-                : `${rangeChange >= 0 ? "+" : ""}${rangeChange.toFixed(1)}%`}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-[var(--ink-tertiary)]">
-              {peakRow === undefined
-                ? "Peak period"
-                : `Peak · ${columns.seriesNames[columns.seriesIndexes[peakRow]]}`}
-            </p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
-              {peakRow === undefined
-                ? "—"
-                : formatPeriod(columns.periodStarts[peakRow], request.interval)}
-            </p>
-          </div>
-        </section>
+        {mappedLocations.length === 0 && (
+          <section className="analysis-tile grid grid-cols-2 gap-4 p-4">
+            <div>
+              <p className="text-xs text-[var(--ink-tertiary)]">Change over range</p>
+              <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
+                {rangeChange === null
+                  ? "—"
+                  : `${rangeChange >= 0 ? "+" : ""}${rangeChange.toFixed(1)}%`}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--ink-tertiary)]">
+                {peakRow === undefined
+                  ? "Highest visible point"
+                  : `Highest visible · ${columns.seriesNames[columns.seriesIndexes[peakRow]]}`}
+              </p>
+              <p className="mt-2 text-xl font-semibold tabular-nums text-[var(--ink)]">
+                {peakRow === undefined
+                  ? "—"
+                  : formatPeriod(columns.periodStarts[peakRow], request.interval)}
+              </p>
+            </div>
+          </section>
+        )}
       </aside>
 
       <AnalysisEvidenceLink

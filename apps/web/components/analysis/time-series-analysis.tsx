@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useAnalysisPerformance } from "@/components/analysis/performance-context";
@@ -9,6 +9,7 @@ import type { AnalysisPlan } from "@/lib/analysis/contracts";
 import type { TimeSeriesRequest } from "@/lib/time-series/contracts";
 import { loadTimeSeries } from "@/lib/time-series/load";
 import { supportsQueryArena } from "@/lib/query-arena/signature";
+import type { QueryArenaRequest } from "@/lib/query-arena/contracts";
 
 import { QueryArenaReporter } from "./query-arena-reporter";
 import { TimeSeriesTrace } from "./time-series-trace";
@@ -23,6 +24,10 @@ export function TimeSeriesAnalysis({
   request,
 }: TimeSeriesAnalysisProps) {
   const { failAnalysis, reportAnalysis } = useAnalysisPerformance();
+  const arenaAnalysis = useMemo<QueryArenaRequest>(
+    () => ({ kind: "time_series", request }),
+    [request],
+  );
   const query = useQuery({
     queryKey: ["time-series", request],
     queryFn: async () => loadTimeSeries(request),
@@ -96,13 +101,14 @@ export function TimeSeriesAnalysis({
     <div className="dashboard-revealing">
       {loaded.queryId !== null && supportsQueryArena(request) && (
         <QueryArenaReporter
-          analysis={{ kind: "time_series", request }}
+          analysis={arenaAnalysis}
           currentStrategy={loaded.strategy}
           queryId={loaded.queryId}
         />
       )}
       <TimeSeriesTrace
         explanation={plan.explanation}
+        key={loaded.queryId ?? JSON.stringify(request)}
         loaded={loaded}
         request={request}
         title={plan.title}
