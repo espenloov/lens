@@ -20,6 +20,12 @@
   <img src="apps/web/public/PostgreSQL-Logo.png" alt="PostgreSQL" height="38" />
 </p>
 
+> [!NOTE]
+> **Watch Lens build live dashboards from two ClickHouse datasets.**
+> The 1 minute 43 second walkthrough includes a generated drill down, measured
+> Query Arena evidence, and complete data source onboarding.
+> [Watch the product walkthrough](docs/lens-demo.mp4).
+
 ## Meet Lens
 
 Most data tools give you a query box or a collection of charts. Lens starts with
