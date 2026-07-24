@@ -161,13 +161,13 @@ Trigger.dev revalidates it before any DDL is allowed to run, records the
 decision in PostgreSQL, and rolls the change back if materialization fails.
 Physical changes are disabled by default.
 
-<p align="center">
+<p align="left">
   <a href="docs/diagrams/query-arena.png">
-    <img src="docs/diagrams/query-arena.png" alt="Query Arena learning loop with PostgreSQL recipes, a measured race, Rust verification, and ClickHouse telemetry" width="620" />
+    <img src="docs/diagrams/query-arena.png" alt="Query Arena learning loop with PostgreSQL recipes, a measured race, Rust verification, and ClickHouse telemetry" width="330" />
   </a>
 </p>
 
-<p align="center"><em>The Query Arena learns only from strategies that pass exact Rust verification.</em></p>
+<p align="left"><em>The Query Arena learns only from strategies that pass exact Rust verification.</em></p>
 
 ## Why Arrow and Rust matter
 
